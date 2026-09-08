@@ -825,6 +825,14 @@
         let pokerTable = { players: [], pot: 0, status: 'attente' };
         let currentUser = null;
 
+        // État spécifique du jeu Blackjack en cours
+        let bjGameState = {
+            playerCards: [],
+            dealerCards: [],
+            bet: 0,
+            inGame: false
+        };
+
         function findUserById(id) { return users.find(u => u && u.id === id); }
         function findUserByNomPrenom(nom, prenom) {
             const slug = userSlug(prenom, nom);
@@ -990,6 +998,56 @@
         }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         function handleOverlayClick(event, id) { if (event.target && event.target.id === id) closeModal(id); }
+
+        /* ============================================================
+           RESERVATION ET ACCES VIP
+           ============================================================ */
+        function openVipModal() {
+            if (!currentUser) { showToast("Veuillez vous identifier pour réserver un accès VIP.", 'error'); openModal('loginModal'); return; }
+            openModal('vipModal');
+        }
+
+        async function bookVipWithTokens() {
+            if (!currentUser || !requireDb()) return;
+            const cost = GAME_RULES.vipPriceTokens;
+            if ((currentUser.jetons || 0) < cost) {
+                showToast(`Jetons insuffisants ! Il vous faut ${cost} jetons.`, 'error');
+                return;
+            }
+            try {
+                await fbUpdateUser(currentUser.id, {
+                    jetons: increment(-cost),
+                    isVip: true
+                });
+                currentUser.jetons -= cost;
+                currentUser.isVip = true;
+                checkAuthUI();
+                closeModal('vipModal');
+                playSfx('win');
+                showToast("Félicitations ! Vous êtes désormais Membre VIP.", 'success');
+            } catch (e) {
+                console.error(e);
+                showToast("Erreur lors du traitement du statut VIP.", 'error');
+            }
+        }
+
+        async function bookVipOnSite() {
+            if (!currentUser || !requireDb()) return;
+            try {
+                await fbAddVipRequest({
+                    userId: currentUser.id,
+                    nom: currentUser.nom,
+                    prenom: currentUser.prenom,
+                    montant: GAME_RULES.vipPriceCash,
+                    timestamp: new Date().toISOString()
+                });
+                closeModal('vipModal');
+                showToast("Demande VIP transmise ! Un membre du staff validera votre règlement sur place.", 'success');
+            } catch (e) {
+                console.error(e);
+                showToast("Erreur lors de la réservation VIP.", 'error');
+            }
+        }
 
         /* ============================================================
            AUTHENTIFICATION (RP simplifiée : nom+prénom+mot de passe)
@@ -1306,6 +1364,261 @@
         }
 
         /* ============================================================
+           JEUX DE CASINO SOLO (Blackjack, Slots, Roulette, Dé)
+           ============================================================ */
+        function generateCard() {
+            const suits = ['♠', '♥', '♦', '♣'];
+            const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const suit = suits[Math.floor(Math.random() * suits.length)];
+            const val = values[Math.floor(Math.random() * values.length)];
+            return { suit, val, isRed: suit === '♥' || suit === '♦' };
+        }
+
+        function getCardScore(card) {
+            if (['J', 'Q', 'K'].includes(card.val)) return 10;
+            if (card.val === 'A') return 11;
+            return parseInt(card.val, 10);
+        }
+
+        function calculateHandValue(cards) {
+            let total = cards.reduce((acc, c) => acc + getCardScore(c), 0);
+            let aces = cards.filter(c => c.val === 'A').length;
+            while (total > 21 && aces > 0) {
+                total -= 10;
+                aces--;
+            }
+            return total;
+        }
+
+        function renderCardHTML(card) {
+            return `<div class="playing-card ${card.isRed ? 'red' : ''}"><div>${card.val}</div><div style="text-align:center;">${card.suit}</div><div style="text-align:right;">${card.val}</div></div>`;
+        }
+
+        async function startBlackjack() {
+            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!requireDb()) return;
+
+            const bet = parseInt(document.getElementById('bj-bet').value, 10);
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast(`Mise minimum : ${GAME_RULES.minBetDefault} jetons.`, 'error'); return; }
+            if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
+
+            bjGameState.bet = bet;
+            bjGameState.inGame = true;
+            bjGameState.playerCards = [generateCard(), generateCard()];
+            bjGameState.dealerCards = [generateCard()];
+
+            await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
+            currentUser.jetons -= bet;
+            checkAuthUI();
+            recordLiveBet('Blackjack', bet);
+
+            document.getElementById('bj-start-btn').style.display = 'none';
+            document.getElementById('bj-actions').style.display = 'flex';
+            document.getElementById('bj-status').innerText = 'En cours... Que faites-vous ?';
+
+            updateBlackjackUI();
+            playSfx('card');
+
+            if (calculateHandValue(bjGameState.playerCards) === 21) {
+                endBlackjack(true, true);
+            }
+        }
+
+        function updateBlackjackUI() {
+            const playerContainer = document.getElementById('bj-player-cards');
+            playerContainer.innerHTML = bjGameState.playerCards.map(c => renderCardHTML(c)).join('');
+            const pScore = calculateHandValue(bjGameState.playerCards);
+
+            const dScore = calculateHandValue(bjGameState.dealerCards);
+            document.getElementById('bj-dealer-info').innerText = `Banque : ${dScore} pts (${bjGameState.dealerCards.map(c => c.val + c.suit).join(', ')})`;
+        }
+
+        async function hitBlackjack() {
+            if (!bjGameState.inGame) return;
+            playSfx('card');
+            bjGameState.playerCards.push(generateCard());
+            updateBlackjackUI();
+
+            const pScore = calculateHandValue(bjGameState.playerCards);
+            if (pScore > 21) {
+                endBlackjack(false);
+            } else if (pScore === 21) {
+                standBlackjack();
+            }
+        }
+
+        async function standBlackjack() {
+            if (!bjGameState.inGame) return;
+
+            while (calculateHandValue(bjGameState.dealerCards) < 17) {
+                bjGameState.dealerCards.push(generateCard());
+            }
+            updateBlackjackUI();
+
+            const pScore = calculateHandValue(bjGameState.playerCards);
+            const dScore = calculateHandValue(bjGameState.dealerCards);
+
+            if (dScore > 21 || pScore > dScore) {
+                endBlackjack(true);
+            } else if (pScore === dScore) {
+                endBlackjack('push');
+            } else {
+                endBlackjack(false);
+            }
+        }
+
+        async function endBlackjack(isWin, isNaturalBlackjack = false) {
+            bjGameState.inGame = false;
+            document.getElementById('bj-start-btn').style.display = 'block';
+            document.getElementById('bj-actions').style.display = 'none';
+
+            let gain = 0;
+            let statusText = '';
+
+            if (isWin === 'push') {
+                gain = bjGameState.bet;
+                statusText = 'Égalité ! Vous récupérez votre mise.';
+            } else if (isWin) {
+                gain = isNaturalBlackjack ? Math.floor(bjGameState.bet * GAME_RULES.blackjackPayout) : bjGameState.bet * 2;
+                statusText = isNaturalBlackjack ? `BLACKJACK ! Vous gagnez ${gain} jetons !` : `Victoire ! Vous gagnez ${gain} jetons !`;
+                playSfx('win');
+            } else {
+                statusText = 'La banque gagne. Dommage !';
+                playSfx('lose');
+            }
+
+            document.getElementById('bj-status').innerText = statusText;
+
+            if (gain > 0) {
+                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
+                currentUser.jetons += gain;
+                checkAuthUI();
+            }
+
+            recordCasinoGame('Blackjack', bjGameState.bet, isWin === true || isNaturalBlackjack, isWin === 'push' ? 0 : (isWin ? gain - bjGameState.bet : bjGameState.bet));
+        }
+
+        async function playSlots() {
+            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!requireDb()) return;
+
+            const bet = parseInt(document.getElementById('slot-bet').value, 10);
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast(`Mise minimum : ${GAME_RULES.minBetDefault} jetons.`, 'error'); return; }
+            if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
+
+            const btn = document.getElementById('slot-play-btn');
+            btn.disabled = true;
+
+            await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
+            currentUser.jetons -= bet;
+            checkAuthUI();
+            recordLiveBet('Machine à Sous', bet);
+
+            const symbols = ['🍒', '🍋', '🔔', '💎', '7️⃣'];
+            const s1 = symbols[Math.floor(Math.random() * symbols.length)];
+            const s2 = symbols[Math.floor(Math.random() * symbols.length)];
+            const s3 = symbols[Math.floor(Math.random() * symbols.length)];
+
+            document.getElementById('slot-1').innerText = s1;
+            document.getElementById('slot-2').innerText = s2;
+            document.getElementById('slot-3').innerText = s3;
+
+            let gain = 0;
+            let status = '';
+
+            if (s1 === s2 && s2 === s3) {
+                gain = Math.floor(bet * GAME_RULES.slotJackpotMultiplier);
+                status = `JACKPOT ! 3 symboles identiques ! (+${gain} jetons)`;
+                playSfx('win');
+            } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+                gain = Math.floor(bet * GAME_RULES.slotMinorMultiplier);
+                status = `Bien joué ! 2 symboles identiques (+${gain} jetons)`;
+                playSfx('win');
+            } else {
+                status = "Pas de chance cette fois !";
+                playSfx('lose');
+            }
+
+            document.getElementById('slot-status').innerText = status;
+
+            if (gain > 0) {
+                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
+                currentUser.jetons += gain;
+                checkAuthUI();
+            }
+
+            recordCasinoGame('Machine à sous', bet, gain > 0, gain > 0 ? gain - bet : bet);
+            btn.disabled = false;
+        }
+
+        async function playRoulette(choice) {
+            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!requireDb()) return;
+
+            const bet = parseInt(document.getElementById('roulette-bet').value, 10);
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast(`Mise minimum : ${GAME_RULES.minBetDefault} jetons.`, 'error'); return; }
+            if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
+
+            await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
+            currentUser.jetons -= bet;
+            checkAuthUI();
+            recordLiveBet('Roulette', bet, `Pari sur ${choice}`);
+
+            const winningColor = Math.random() < 0.5 ? 'Rouge' : 'Noir';
+            const isWin = choice === winningColor;
+            const gain = isWin ? bet * GAME_RULES.rouletteMultiplier : 0;
+
+            document.getElementById('roulette-status').innerText = `Roue arrêtée sur : ${winningColor}. ${isWin ? `Gagné ! (+${gain} pts)` : 'Perdu !'}`;
+
+            if (isWin) {
+                playSfx('win');
+                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
+                currentUser.jetons += gain;
+                checkAuthUI();
+            } else {
+                playSfx('lose');
+            }
+
+            recordCasinoGame('Roulette', bet, isWin, isWin ? gain - bet : bet);
+        }
+
+        async function playDice() {
+            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!requireDb()) return;
+
+            const bet = parseInt(document.getElementById('dice-bet').value, 10);
+            const choice = parseInt(document.getElementById('dice-choice').value, 10);
+
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDice) { showToast(`Mise minimum : ${GAME_RULES.minBetDice} jetons.`, 'error'); return; }
+            if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
+
+            await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
+            currentUser.jetons -= bet;
+            checkAuthUI();
+            recordLiveBet('Jeu du Dé', bet, `Numéro choisi : ${choice}`);
+
+            const diceRoll = Math.floor(Math.random() * 6) + 1;
+            const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            document.getElementById('dice-result').innerText = diceEmojis[diceRoll - 1];
+
+            const isWin = choice === diceRoll;
+            const gain = isWin ? bet * GAME_RULES.diceMultiplier : 0;
+
+            if (isWin) {
+                playSfx('win');
+                document.getElementById('dice-status').innerText = `EXCELLENT ! Le ${diceRoll} est tombé ! (+${gain} jetons)`;
+                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
+                currentUser.jetons += gain;
+                checkAuthUI();
+            } else {
+                playSfx('lose');
+                document.getElementById('dice-status').innerText = `Résultat : ${diceRoll}. Perdu, tentez encore !`;
+            }
+
+            recordCasinoGame('Jeu du Dé', bet, isWin, isWin ? gain - bet : bet);
+        }
+
+        /* ============================================================
            POKER MULTIJOUEUR — table partagée via transaction Firestore
            ============================================================ */
         function openCasinoGame(gameName) {
@@ -1466,7 +1779,7 @@
         }
 
         /* ============================================================
-           SYSTÈME AUDIO (Web Audio API — inchangé, aucune donnée partagée)
+           SYSTÈME AUDIO (Web Audio API — synthétiseur intégré)
            ============================================================ */
         let audioCtx = null;
         let isCasinoAudioPlaying = false;
@@ -1494,13 +1807,16 @@
                 stopCasinoAmbience();
             }
         }
+
         function startCasinoAmbience() {
             if (casinoAmbienceInterval) clearInterval(casinoAmbienceInterval);
             const chords = [261.63, 329.63, 392.00, 523.25, 440.00, 349.23];
             playAmbientChord();
             casinoAmbienceInterval = setInterval(() => { if (isCasinoAudioPlaying) playAmbientChord(chords[Math.floor(Math.random() * chords.length)]); }, 4500);
         }
+
         function stopCasinoAmbience() { if (casinoAmbienceInterval) { clearInterval(casinoAmbienceInterval); casinoAmbienceInterval = null; } }
+
         function playAmbientChord(freq = 261.63) {
             if (!audioCtx || !isCasinoAudioPlaying) return;
             try {
@@ -1513,6 +1829,7 @@
                 osc.start(); osc.stop(audioCtx.currentTime + 4.2);
             } catch (e) {}
         }
+
         function playSfx(type) {
             initAudioContext();
             if (!audioCtx) return;
@@ -1520,304 +1837,56 @@
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
                 osc.connect(gain); gain.connect(audioCtx.destination);
+
                 if (type === 'card') {
                     osc.type = 'triangle'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
                     gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-                    osc.start(now); osc.stop(now + 0.09);
-                } else if (type === 'roulette') {
-                    for (let i = 0; i < 12; i++) {
-                        const t = now + (i * 0.06);
-                        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-                        o.type = 'sine'; o.frequency.setValueAtTime(800 + (Math.random() * 200), t);
-                        g.gain.setValueAtTime(0.05, t); g.gain.linearRampToValueAtTime(0.001, t + 0.05);
-                        o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.06);
-                    }
-                } else if (type === 'slot') {
-                    osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(350, now + 0.15);
-                    gain.gain.setValueAtTime(0.08, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
-                    osc.start(now); osc.stop(now + 0.16);
+                    osc.start(now); osc.stop(now + 0.08);
                 } else if (type === 'win') {
-                    [523.25, 659.25, 783.99, 1046.50].forEach((noteFreq, index) => {
-                        const t = now + (index * 0.1);
-                        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-                        o.type = 'sine'; o.frequency.setValueAtTime(noteFreq, t);
-                        g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0.01, t + 0.2);
-                        o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.22);
-                    });
-                } else if (type === 'dice') {
-                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
-                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
-                    osc.start(now); osc.stop(now + 0.13);
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1); osc.frequency.setValueAtTime(783.99, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                } else if (type === 'lose') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(120, now + 0.25);
+                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
                 }
             } catch (e) {}
         }
 
-        /* ============================================================
-           VIP
-           ============================================================ */
-        function openVipModal() {
-            if (!currentUser) { showToast("Veuillez vous identifier pour accéder au carré VIP."); openModal('loginModal'); return; }
-            openModal('vipModal');
-        }
-        async function bookVipWithTokens() {
-            closeModal('vipModal');
-            if (!requireDb()) return;
-            if (currentUser.employe || (currentUser.jetons || 0) >= GAME_RULES.vipPriceTokens) {
-                try {
-                    const fields = { isVip: true };
-                    if (!currentUser.employe) { fields.jetons = increment(-GAME_RULES.vipPriceTokens); }
-                    await fbUpdateUser(currentUser.id, fields);
-                    currentUser.isVip = true;
-                    if (!currentUser.employe) currentUser.jetons -= GAME_RULES.vipPriceTokens;
-                    checkAuthUI();
-                    showToast("✨ Réservation VIP confirmée.", 'success');
-                } catch (e) { console.error(e); showToast("Erreur lors de la réservation.", 'error'); }
-            } else {
-                showToast(`❌ Solde insuffisant (${GAME_RULES.vipPriceTokens} jetons requis).`, 'error');
-            }
-        }
-        async function bookVipOnSite() {
-            closeModal('vipModal');
-            if (!requireDb()) return;
-            const exist = vipRequests.find(v => v.nom.toLowerCase() === currentUser.nom.toLowerCase() && v.prenom.toLowerCase() === currentUser.prenom.toLowerCase());
-            if (exist) { showToast("⚠️ Demande déjà en attente.", 'error'); return; }
-            try {
-                await fbAddVipRequest({ nom: currentUser.nom, prenom: currentUser.prenom, montant: GAME_RULES.vipPriceCash, timestamp: new Date().toISOString() });
-                showToast(`📝 Demande enregistrée. Présentez-vous à l'entrée avec ${GAME_RULES.vipPriceCash}.`, 'success');
-            } catch (e) { console.error(e); showToast("Erreur lors de l'enregistrement.", 'error'); }
-        }
+        /* Expositions globales nécessaires pour les gestionnaires d'évènements inline HTML (onclick, onsubmit) */
+        window.switchTab = switchTab;
+        window.enterClubDancefloor = enterClubDancefloor;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.handleOverlayClick = handleOverlayClick;
+        window.handleRegister = handleRegister;
+        window.handleLogin = handleLogin;
+        window.logout = logout;
+        window.submitOrder = submitOrder;
+        window.completeOrder = completeOrder;
+        window.validateVipPayment = validateVipPayment;
+        window.toggleRole = toggleRole;
+        window.addNewDish = addNewDish;
+        window.addCasinoPoints = addCasinoPoints;
+        window.openCasinoGame = openCasinoGame;
+        window.backToLobby = backToLobby;
+        window.startBlackjack = startBlackjack;
+        window.hitBlackjack = hitBlackjack;
+        window.standBlackjack = standBlackjack;
+        window.playSlots = playSlots;
+        window.playRoulette = playRoulette;
+        window.playDice = playDice;
+        window.createOrJoinPokerTable = createOrJoinPokerTable;
+        window.startPokerHand = startPokerHand;
+        window.pokerAction = pokerAction;
+        window.toggleCasinoAudio = toggleCasinoAudio;
+        window.openVipModal = openVipModal;
+        window.bookVipWithTokens = bookVipWithTokens;
+        window.bookVipOnSite = bookVipOnSite;
 
-        /* ============================================================
-           BLACKJACK
-           ============================================================ */
-        let bjDeck = [], pHand = [], dHand = [], bjBet = 100, bjLocked = false;
-
-        function readBet(inputId, min) {
-            const val = parseInt(document.getElementById(inputId).value, 10);
-            return (!Number.isFinite(val) || val < min) ? null : val;
-        }
-
-        async function applyJetons(delta) {
-            currentUser.jetons = (currentUser.jetons || 0) + delta;
-            document.getElementById('user-points').innerText = currentUser.jetons;
-            if (db) {
-                try { await fbUpdateUser(currentUser.id, { jetons: increment(delta) }); }
-                catch (e) { console.error('Erreur de synchronisation des jetons:', e); showToast("Erreur réseau : solde peut-être désynchronisé.", 'error'); }
-            }
-        }
-
-        async function startBlackjack() {
-            if (bjLocked) return;
-            const bet = readBet('bj-bet', GAME_RULES.minBetDefault);
-            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDefault}.`, 'error'); return; }
-            bjBet = bet;
-            await applyJetons(-bjBet);
-
-            playSfx('card');
-            recordLiveBet('Blackjack', bjBet);
-
-            const suits = ['♠', '♥', '♦', '♣'], values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-            bjDeck = [];
-            suits.forEach(suit => values.forEach(val => bjDeck.push({ val, suit })));
-            bjDeck.sort(() => Math.random() - 0.5);
-            pHand = [bjDeck.pop(), bjDeck.pop()];
-            dHand = [bjDeck.pop(), bjDeck.pop()];
-
-            renderBj(false);
-            document.getElementById('bj-start-btn').style.display = 'none';
-            document.getElementById('bj-actions').style.display = 'flex';
-
-            const playerHasBlackjack = calcHand(pHand) === 21;
-            const dealerHasBlackjack = calcHand(dHand) === 21;
-            if (playerHasBlackjack && dealerHasBlackjack) { endBj("Égalité — deux blackjacks. Mise remboursée.", 'push', bjBet); }
-            else if (playerHasBlackjack) { endBj("BLACKJACK ! Payé 3:2", 'win', Math.floor(bjBet * GAME_RULES.blackjackPayout)); }
-        }
-
-        function calcHand(h) {
-            let sum = 0, aces = 0;
-            h.forEach(c => {
-                if (['J', 'Q', 'K'].includes(c.val)) sum += 10;
-                else if (c.val === 'A') { sum += 11; aces++; }
-                else sum += parseInt(c.val, 10);
-            });
-            while (sum > 21 && aces > 0) { sum -= 10; aces--; }
-            return sum;
-        }
-
-        function renderBj(reveal) {
-            document.getElementById('bj-player-cards').innerHTML = pHand.map(c => `<div class="playing-card ${['♥', '♦'].includes(c.suit) ? 'red' : ''}">${c.val}<br><span style="font-size:1.8rem; text-align:center;">${c.suit}</span></div>`).join('');
-            const playerScore = calcHand(pHand);
-            const dealerDisplay = reveal ? calcHand(dHand) : (dHand[0].val + '+?');
-            document.getElementById('bj-dealer-info').innerText = `Banque: ${dealerDisplay} | Vous: ${playerScore}`;
-            if (playerScore > 21 && !bjLocked) endBj("Vous avez sauté ! Perdu.", 'lose', 0);
-        }
-
-        function hitBlackjack() { if (bjLocked) return; playSfx('card'); pHand.push(bjDeck.pop()); renderBj(false); }
-
-        function standBlackjack() {
-            if (bjLocked) return;
-            playSfx('card');
-            let dealerScore = calcHand(dHand);
-            while (dealerScore < 17) { dHand.push(bjDeck.pop()); dealerScore = calcHand(dHand); }
-            const playerScore = calcHand(pHand);
-            renderBj(true);
-            if (dealerScore > 21 || playerScore > dealerScore) endBj("Gagné !", 'win', bjBet * 2);
-            else if (playerScore === dealerScore) endBj("Égalité", 'push', bjBet);
-            else endBj("Banque gagne", 'lose', 0);
-        }
-
-        async function endBj(msg, outcome, rewardAmount) {
-            bjLocked = true;
-            document.getElementById('bj-status').innerText = msg;
-
-            if (outcome === 'win') { await applyJetons(rewardAmount); playSfx('win'); recordCasinoGame('Blackjack', bjBet, true, rewardAmount - bjBet); }
-            else if (outcome === 'push') { await applyJetons(rewardAmount); recordCasinoGame('Blackjack', bjBet, true, 0); }
-            else { recordCasinoGame('Blackjack', bjBet, false, 0); }
-
-            document.getElementById('bj-start-btn').style.display = 'block';
-            document.getElementById('bj-actions').style.display = 'none';
-            bjLocked = false;
-        }
-
-        /* ============================================================
-           MACHINE À SOUS
-           ============================================================ */
-        let slotsLocked = false;
-        async function playSlots() {
-            if (slotsLocked) return;
-            const bet = readBet('slot-bet', GAME_RULES.minBetDefault);
-            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDefault}.`, 'error'); return; }
-            slotsLocked = true;
-            document.getElementById('slot-play-btn').disabled = true;
-            await applyJetons(-bet);
-
-            playSfx('slot');
-            recordLiveBet('Machines à Sous', bet);
-            document.getElementById('slot-status').innerText = "...";
-
-            setTimeout(async () => {
-                const symbols = ['🍒', '🍋', '💎', '7️⃣', '🔔'];
-                const s1 = symbols[Math.floor(Math.random() * symbols.length)];
-                const s2 = symbols[Math.floor(Math.random() * symbols.length)];
-                const s3 = symbols[Math.floor(Math.random() * symbols.length)];
-                document.getElementById('slot-1').innerText = s1;
-                document.getElementById('slot-2').innerText = s2;
-                document.getElementById('slot-3').innerText = s3;
-
-                if (s1 === s2 && s2 === s3) {
-                    const win = bet * GAME_RULES.slotJackpotMultiplier;
-                    await applyJetons(win);
-                    document.getElementById('slot-status').innerText = `JACKPOT ! (x${GAME_RULES.slotJackpotMultiplier})`;
-                    playSfx('win'); recordCasinoGame('Slots', bet, true, win);
-                } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-                    const win = Math.floor(bet * GAME_RULES.slotMinorMultiplier);
-                    await applyJetons(win);
-                    document.getElementById('slot-status').innerText = `Gain mineur (x${GAME_RULES.slotMinorMultiplier})`;
-                    playSfx('win'); recordCasinoGame('Slots', bet, true, win);
-                } else {
-                    document.getElementById('slot-status').innerText = "Perdu";
-                    recordCasinoGame('Slots', bet, false, 0);
-                }
-                slotsLocked = false;
-                document.getElementById('slot-play-btn').disabled = false;
-            }, 400);
-        }
-
-        /* ============================================================
-           ROULETTE
-           ============================================================ */
-        let rouletteLocked = false;
-        async function playRoulette(choice) {
-            if (rouletteLocked) return;
-            const bet = readBet('roulette-bet', GAME_RULES.minBetDefault);
-            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDefault}.`, 'error'); return; }
-            rouletteLocked = true;
-            document.getElementById('roulette-rouge-btn').disabled = true;
-            document.getElementById('roulette-noir-btn').disabled = true;
-            await applyJetons(-bet);
-
-            playSfx('roulette');
-            recordLiveBet('Roulette', bet, `Choix: ${choice}`);
-
-            setTimeout(async () => {
-                const outcomes = ['Rouge', 'Noir', 'Rouge', 'Noir', 'Vert(0)'];
-                const result = outcomes[Math.floor(Math.random() * outcomes.length)];
-                document.getElementById('roulette-wheel').innerText = `🎡 ${result}`;
-                if (result === choice) {
-                    const win = bet * GAME_RULES.rouletteMultiplier;
-                    await applyJetons(win);
-                    document.getElementById('roulette-status').innerText = `Gagné (${result})`;
-                    playSfx('win'); recordCasinoGame('Roulette', bet, true, win);
-                } else {
-                    document.getElementById('roulette-status').innerText = `Perdu (${result})`;
-                    recordCasinoGame('Roulette', bet, false, 0);
-                }
-                rouletteLocked = false;
-                document.getElementById('roulette-rouge-btn').disabled = false;
-                document.getElementById('roulette-noir-btn').disabled = false;
-            }, 500);
-        }
-
-        /* ============================================================
-           JEU DU DÉ
-           ============================================================ */
-        let diceLocked = false;
-        async function playDice() {
-            if (diceLocked) return;
-            const bet = readBet('dice-bet', GAME_RULES.minBetDice);
-            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDice}.`, 'error'); return; }
-            const choice = parseInt(document.getElementById('dice-choice').value, 10);
-
-            diceLocked = true;
-            document.getElementById('dice-play-btn').disabled = true;
-            await applyJetons(-bet);
-
-            playSfx('dice');
-            recordLiveBet('Jeu du Dé', bet, `Numéro parié: ${choice}`);
-            document.getElementById('dice-result').innerText = "🎲";
-            document.getElementById('dice-status').innerText = "Le dé roule...";
-
-            setTimeout(async () => {
-                const result = Math.floor(Math.random() * 6) + 1;
-                const diceEmojis = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
-                document.getElementById('dice-result').innerText = diceEmojis[result];
-
-                if (result === choice) {
-                    const winAmount = bet * GAME_RULES.diceMultiplier;
-                    await applyJetons(winAmount);
-                    document.getElementById('dice-status').innerText = `Gagné ! Le dé a fait ${result}. (+${winAmount})`;
-                    playSfx('win'); recordCasinoGame('Le Dé', bet, true, winAmount);
-                } else {
-                    document.getElementById('dice-status').innerText = `Perdu ! Le dé a fait ${result}.`;
-                    recordCasinoGame('Le Dé', bet, false, 0);
-                }
-                diceLocked = false;
-                document.getElementById('dice-play-btn').disabled = false;
-            }, 500);
-        }
-
-        /* ============================================================
-           EXPOSITION AU SCOPE GLOBAL
-           Une balise script de type module a son propre scope : les fonctions
-           appelées depuis les attributs onclick/onsubmit du HTML doivent
-           être explicitement attachées à window pour rester accessibles.
-           ============================================================ */
-        Object.assign(window, {
-            switchTab, enterClubDancefloor, openModal, closeModal, handleOverlayClick,
-            openVipModal, bookVipWithTokens, bookVipOnSite,
-            openCasinoGame, backToLobby,
-            handleRegister, handleLogin, logout,
-            completeOrder, validateVipPayment, toggleRole, addNewDish, addCasinoPoints,
-            createOrJoinPokerTable, startPokerHand, pokerAction,
-            startBlackjack, hitBlackjack, standBlackjack,
-            playSlots, playRoulette, playDice,
-            toggleCasinoAudio, submitOrder
-        });
-
-        window.addEventListener('online', () => setFirebaseStatus(isFirebaseConfigured ? 'online' : 'offline', isFirebaseConfigured ? 'En ligne' : 'Firebase non configuré'));
-        window.addEventListener('offline', () => setFirebaseStatus('offline', 'Connexion perdue'));
-
-        window.addEventListener('DOMContentLoaded', initApp);
+        // Démarrage
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
