@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Au Fil du Temps | Complexe de Luxe</title>
+    <!-- Importation sécurisée des polices -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-base: #07070a;
+            --bg-surface: rgba(20, 22, 28, 0.85);
+            --bg-surface-hover: rgba(30, 33, 42, 0.95);
+            --gold-primary: #d4af37;
+            --gold-light: #f3e5ab;
+            --gold-dark: #997a00;
+            --text-main: #f8f8f8;
+            --text-muted: #a0a5b1;
+            --danger: #ff4757;
+            --success: #2ed573;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --font-heading: 'Cinzel', serif;
+            --font-body: 'Montserrat', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-body), sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, #1a1a24 0%, transparent 70%);
+        }
+
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--gold-primary);
+            outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+        }
+
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+
+        /* --- HEADER & NAVIGATION --- */
+        header {
+            background: rgba(7, 7, 10, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo-container { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        .logo {
+            font-family: var(--font-heading), serif;
+            font-size: clamp(1.3rem, 4vw, 1.8rem);
+            font-weight: 700;
+            color: var(--gold-primary);
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+            letter-spacing: 2px;
+        }
+
+        #fb-status {
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px;
+            padding: 3px 8px; border-radius: 20px; border: 1px solid var(--glass-border);
+            color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px;
+        }
+        #fb-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); display:inline-block; }
+        #fb-status.online { color: var(--success); border-color: var(--success); }
+        #fb-status.online .dot { background: var(--success); }
+        #fb-status.offline { color: var(--danger); border-color: var(--danger); }
+        #fb-status.offline .dot { background: var(--danger); }
+
+        #fb-config-banner {
+            display: none; background: rgba(255, 71, 87, 0.12); border-bottom: 1px solid var(--danger);
+            color: #ffd7da; text-align: center; font-size: 0.8rem; padding: 10px 15px;
+        }
+
+        nav { display: flex; gap: 5px; flex-wrap: wrap; }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        nav a:hover, nav a.active { color: var(--gold-primary); background: rgba(212, 175, 55, 0.05); }
+
+        /* --- BOUTONS --- */
+        .btn {
+            background: linear-gradient(135deg, var(--gold-primary), var(--gold-dark));
+            color: #000;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 4px;
+            font-family: var(--font-body), sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+            text-align: center;
+        }
+
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4); filter: brightness(1.1); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; filter: none; }
+
+        .btn-outline { background: transparent; border: 1px solid var(--gold-primary); color: var(--gold-primary); box-shadow: none; }
+        .btn-outline:hover { background: rgba(212, 175, 55, 0.1); color: var(--gold-light); }
+        .btn-outline:disabled:hover { background: transparent; color: var(--gold-primary); }
+        .btn-danger { background: var(--danger); color: white; }
+
+        /* --- STRUCTURE MAIN --- */
+        main { flex: 1; width: 100%; }
+        .section { display: none; opacity: 0; transition: opacity 0.4s ease; }
+        .section.active { display: block; opacity: 1; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
+
+        /* --- HERO BANNERS --- */
+        .hero {
+            height: 35vh; min-height: 220px;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            position: relative; background-size: cover; background-position: center;
+        }
+        .hero::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(7,7,10,0.6), var(--bg-base));
+        }
+        .hero-content { position: relative; z-index: 1; max-width: 800px; padding: 0 20px; }
+        .hero h1 { font-family: var(--font-heading), serif; font-size: clamp(1.8rem, 6vw, 2.8rem); color: var(--gold-primary); margin-bottom: 10px; text-shadow: 0 5px 15px rgba(0,0,0,0.8); }
+        .hero p { font-size: 1rem; color: var(--text-main); font-weight: 300; }
+
+        /* --- CARTES & GRILLES --- */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: var(--bg-surface); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); border-radius: 12px; padding: 25px; transition: all 0.3s ease; }
+        h2, h3 { font-family: var(--font-heading), serif; color: var(--gold-light); margin-bottom: 15px; }
+
+        /* --- RESTAURANT --- */
+        .menu-list { display: flex; flex-direction: column; gap: 15px; }
+        .menu-item { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 12px; gap: 15px; flex-wrap: wrap; }
+        .menu-item-info h4 { font-family: var(--font-heading), serif; font-size: 1.1rem; color: var(--gold-primary); }
+        .menu-item-info p { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; font-style: italic; }
+        .menu-price { font-family: var(--font-heading), serif; font-size: 1.2rem; color: #fff; font-weight: 700; white-space: nowrap; }
+
+        /* --- CASINO TABLES --- */
+        .casino-table {
+            background: radial-gradient(circle at center, #0f3d24 0%, #061c10 100%);
+            border: 6px solid #2a1610; border-radius: 20px; padding: 30px 20px;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 15px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .playing-card {
+            background: #fff; color: #000; width: 60px; height: 90px; border-radius: 6px;
+            display: inline-flex; flex-direction: column; justify-content: space-between;
+            padding: 6px; font-weight: bold; font-size: 1.1rem;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.5); margin: 0 4px;
+        }
+        .playing-card.red { color: #d63031; }
+
+        /* --- LEADERBOARD --- */
+        .rank-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .rank-num { font-family: var(--font-heading), serif; color: var(--gold-primary); width: 22px; text-align: center; font-weight: 700; }
+        .rank-name { flex: 1; font-size: 0.88rem; }
+        .rank-jetons { font-family: var(--font-heading), serif; color: var(--gold-light); font-weight: 700; }
+
+        /* --- FORMS & MODALS --- */
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 12px; background: rgba(0,0,0,0.5);
+            border: 1px solid var(--glass-border); border-radius: 6px;
+            color: #fff; font-family: var(--font-body), sans-serif; font-size: 0.95rem;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: var(--gold-primary); outline: none; }
+
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+            justify-content: center; align-items: center; z-index: 2000; padding: 15px;
+        }
+        .modal-content {
+            background: var(--bg-surface); border: 1px solid var(--glass-border);
+            padding: 30px; border-radius: 12px; width: 100%; max-width: 420px;
+            position: relative; box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+        }
+
+        /* --- ADMIN DASHBOARD --- */
+        .admin-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.4); padding: 12px 15px; border-radius: 6px; margin-bottom: 8px;
+            border-left: 3px solid var(--gold-primary); gap: 10px; flex-wrap: wrap;
+        }
+        .badge { padding: 3px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .badge-employe { background: rgba(46, 213, 115, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .badge-vip { background: rgba(212, 175, 55, 0.2); color: var(--gold-light); border: 1px solid var(--gold-primary); }
+
+        footer { text-align: center; padding: 1.5rem; border-top: 1px solid var(--glass-border); font-size: 0.8rem; color: var(--text-muted); }
+
+        /* --- NOTIFICATIONS TOAST --- */
+        #toast-container {
+            position: fixed; bottom: 20px; right: 20px; z-index: 3000;
+            display: flex; flex-direction: column; gap: 10px; max-width: calc(100% - 40px); width: 320px;
+        }
+        .toast {
+            background: var(--bg-surface-hover); border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--gold-primary);
+            padding: 14px 16px; border-radius: 8px; font-size: 0.85rem; color: var(--text-main);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            animation: toast-in 0.25s ease forwards;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.leaving { animation: toast-out 0.25s ease forwards; }
+        @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
+
+        /* --- RESPONSIVE : petits écrans --- */
+        @media (max-width: 480px) {
+            header { padding: 0.75rem 1rem; }
+            .container { padding: 1.5rem 0.75rem; }
+            .card { padding: 18px; }
+            .playing-card { width: 48px; height: 72px; font-size: 0.9rem; }
+            #poker-actions { flex-direction: column; }
+            #poker-actions .btn { width: 100%; }
+            .modal-content { padding: 20px; }
+            #toast-container { right: 10px; left: 10px; width: auto; bottom: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="fb-config-banner">
+        ⚠ Firebase n'est pas configuré : remplace les valeurs <code>VOTRE_...</code> dans <code>firebaseConfig</code> (haut du script) par les identifiants de ton projet Firebase pour activer la synchronisation en ligne.
+    </div>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo">AU FIL DU TEMPS</div>
+            <span id="fb-status"><span class="dot"></span><span id="fb-status-text">Connexion...</span></span>
+        </div>
+        <nav aria-label="Navigation principale">
+            <a href="javascript:void(0)" onclick="switchTab('restaurant')" class="active">Gastronomie</a>
+            <a href="javascript:void(0)" onclick="switchTab('club')">Le Club</a>
+            <a href="javascript:void(0)" onclick="switchTab('casino')">Casino</a>
+            <a href="javascript:void(0)" onclick="switchTab('employe')" id="nav-employe" style="display:none; color: var(--success);">Administration</a>
+        </nav>
+        <div class="user-panel" id="user-panel-auth">
+            <button type="button" class="btn btn-outline" onclick="openModal('loginModal')">S'identifier</button>
+            <button type="button" class="btn" onclick="openModal('registerModal')">Devenir Membre</button>
+        </div>
+        <div class="user-panel" id="user-panel-logged" style="display: none; align-items: center; gap: 12px;">
+            <span id="welcome-user" style="font-weight: 500; font-family: var(--font-heading), serif; color: var(--gold-light); font-size: 0.9rem;"></span>
+            <button type="button" class="btn btn-danger" onclick="logout()" style="padding: 6px 12px; font-size: 0.75rem;">Quitter</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- SECTION RESTAURANT -->
+        <section id="restaurant" class="section active">
+            <div class="hero" style="background-image: url('https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1920&q=80');">
+                <div class="hero-content">
+                    <h1>L'Excellence Culinaire</h1>
+                    <p>Découvrez une carte raffinée, pensée par nos chefs étoilés.</p>
+                </div>
+            </div>
+
+            <div class="container">
+                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+                    <div class="card">
+                        <h2 style="text-align: center; margin-bottom: 20px;">Notre Menu Signature</h2>
+                        <div class="menu-list" id="menu-grid"></div>
+                    </div>
+
+                    <div class="card" style="height: fit-content; border-color: var(--gold-primary);">
+                        <h3 style="text-align: center;">Réserver / Commander</h3>
+                        <form id="order-form" onsubmit="submitOrder(event)" style="margin-top: 15px;">
+                            <div class="form-group">
+                                <label id="order-identity-label">Identité (RP)</label>
+                                <div style="display:flex; gap:10px;">
+                                    <label for="order-prenom" class="sr-only">Prénom</label>
+                                    <input type="text" id="order-prenom" required placeholder="Prénom" aria-labelledby="order-identity-label" autocomplete="off">
+                                    <label for="order-nom" class="sr-only">Nom</label>
+                                    <input type="text" id="order-nom" required placeholder="Nom" aria-labelledby="order-identity-label" autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-plat">Choix du plat</label>
+                                <select id="order-plat" required></select>
+                            </div>
+                            <button type="submit" class="btn" style="width: 100%;">Transmettre au Chef</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION CLUB -->
+        <section id="club" class="section">
+            <div class="hero" style="background-image: url('https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1920&q=80');">
+                <div class="hero-content">
+                    <h1>Nightclub Élite</h1>
+                    <p>La référence nocturne de la ville.</p>
+                </div>
+            </div>
+
+            <div class="container">
+                <div class="grid">
+                    <div class="card" style="text-align: center; padding: 40px 20px;">
+                        <h2>Accès Général</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 300; font-size: 0.9rem;">Dancefloor principal, bar central et sets DJ.</p>
+                        <h3 style="color: #fff; margin-bottom: 15px;">Entrée Libre</h3>
+                        <button type="button" class="btn btn-outline" onclick="enterClubDancefloor()" style="width:100%;">Rejoindre la piste</button>
+                    </div>
+
+                    <div class="card" style="text-align: center; padding: 40px 20px; background: linear-gradient(145deg, rgba(30,25,15,0.9), rgba(15,12,5,0.9)); border: 1px solid var(--gold-primary);">
+                        <h2>L'Espace Privilège</h2>
+                        <span class="badge badge-vip" style="display:inline-block; margin-bottom: 15px;">1500 Jetons / 1000 €</span>
+                        <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: 300; font-size: 0.9rem;">Salons privatifs, hôtesses et service premium.</p>
+                        <button type="button" class="btn" onclick="openVipModal()" style="width:100%;">Réserver un Salon VIP</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION CASINO -->
+        <section id="casino" class="section">
+            <div class="hero" style="background-image: url('https://images.unsplash.com/photo-1596838132731-3301c3fd4317?auto=format&fit=crop&w=1920&q=80');">
+                <div class="hero-content">
+                    <h1>Le Grand Casino Lounge</h1>
+                    <p>Tentez votre chance sur nos tables prestigieuses.</p>
+                </div>
+            </div>
+
+            <div class="container">
+                <!-- Panneau Contrôle Audio Casino -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
+                    <div style="background: rgba(212, 175, 55, 0.1); border: 1px solid var(--gold-primary); padding: 10px 20px; border-radius: 8px; display: inline-flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.3rem;" aria-hidden="true">🏦</span>
+                        <div>
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--gold-primary); font-weight: bold;">Fonds Disponibles</div>
+                            <div style="font-size: 1.2rem; font-family: var(--font-heading), serif; color: #fff;"><span id="user-points">0</span> Jetons</div>
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.1rem;" id="audio-icon" aria-hidden="true">🎵</span>
+                        <div style="font-size: 0.85rem; font-weight: 500;">Ambiance Casino</div>
+                        <button type="button" class="btn btn-outline" id="audio-toggle-btn" onclick="toggleCasinoAudio()" style="padding: 5px 12px; font-size: 0.75rem;">Activer Musique</button>
+                    </div>
+                </div>
+
+                <div id="casino-lobby" class="casino-view" style="display:block;">
+                    <div class="grid">
+                        <div class="card" style="text-align: center;">
+                            <h2 style="font-size: 1.3rem;">Blackjack</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Atteignez 21 sans sauter.</p>
+                            <button type="button" class="btn btn-outline" onclick="openCasinoGame('blackjack')" style="width:100%;">Prendre Place</button>
+                        </div>
+                        <div class="card" style="text-align: center;">
+                            <h2 style="font-size: 1.3rem;">Roulette</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Faites vos jeux sur la roue.</p>
+                            <button type="button" class="btn btn-outline" onclick="openCasinoGame('roulette')" style="width:100%;">Prendre Place</button>
+                        </div>
+                        <div class="card" style="text-align: center;">
+                            <h2 style="font-size: 1.3rem;">Machines à Sous</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Jackpots progressifs.</p>
+                            <button type="button" class="btn btn-outline" onclick="openCasinoGame('slots')" style="width:100%;">Tenter sa chance</button>
+                        </div>
+                        <div class="card" style="text-align: center;">
+                            <h2 style="font-size: 1.3rem;">Le Jeu du Dé</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Trouvez le bon numéro (1 à 6).</p>
+                            <button type="button" class="btn btn-outline" onclick="openCasinoGame('dice')" style="width:100%;">Lancer les dés</button>
+                        </div>
+                        <div class="card" style="text-align: center; border-color: var(--gold-primary);">
+                            <h2 style="font-size: 1.3rem;">Poker Texas Hold'em</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Affrontez 2 à 8 joueurs en direct.</p>
+                            <button type="button" class="btn" onclick="openCasinoGame('poker')" style="width:100%;">Rejoindre le salon</button>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 20px;">
+                        <h3>🏆 Classement des Joueurs</h3>
+                        <div id="leaderboard-list" style="margin-top: 10px;"></div>
+                    </div>
+                </div>
+
+                <!-- JEU BLACKJACK -->
+                <div id="game-blackjack" class="casino-view" style="display:none;">
+                    <button type="button" class="btn-outline" onclick="backToLobby()" style="padding: 6px 12px; margin-bottom: 15px; border-radius:4px; color:#fff; cursor:pointer;">⬅ Quitter la table</button>
+                    <div class="casino-table">
+                        <h2 style="color: rgba(255,255,255,0.8); letter-spacing: 1px; font-size: 1.2rem;">BLACKJACK PAYS 3 TO 2</h2>
+                        <div class="form-group" style="max-width: 180px; margin: 15px auto;">
+                            <label for="bj-bet" class="sr-only">Mise</label>
+                            <input type="number" id="bj-bet" value="100" min="100" step="1" placeholder="Mise (Min 100)" style="text-align:center;">
+                        </div>
+
+                        <div style="min-height: 200px; display:flex; flex-direction:column; justify-content:center;">
+                            <div id="bj-dealer-info" style="color: #fff; font-size: 0.9rem; margin-bottom: 10px; font-weight: bold;" aria-live="polite"></div>
+                            <div id="bj-player-cards" style="display:flex; justify-content:center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;"></div>
+                            <p id="bj-status" style="font-size: 1rem; color: var(--gold-light);" aria-live="polite"></p>
+                        </div>
+
+                        <div style="max-width: 250px; margin: 0 auto;">
+                            <button type="button" class="btn" id="bj-start-btn" onclick="startBlackjack()" style="width:100%;">Distribuer</button>
+                            <div id="bj-actions" style="display: none; gap: 10px; margin-top: 10px;">
+                                <button type="button" class="btn" onclick="hitBlackjack()" style="flex:1; background: var(--success); color:#fff; border:none;">Tirer</button>
+                                <button type="button" class="btn" onclick="standBlackjack()" style="flex:1; background: var(--danger); color:#fff; border:none;">Rester</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MACHINE A SOUS -->
+                <div id="game-slots" class="casino-view" style="display:none;">
+                    <button type="button" class="btn-outline" onclick="backToLobby()" style="padding: 6px 12px; margin-bottom: 15px; border-radius:4px; color:#fff; cursor:pointer;">⬅ Quitter</button>
+                    <div class="card" style="text-align:center; max-width: 450px; margin: 0 auto; border-color: var(--gold-primary);">
+                        <h2>Machine à Sous</h2>
+                        <div class="form-group" style="margin: 15px auto; max-width: 180px;">
+                            <label for="slot-bet" class="sr-only">Mise</label>
+                            <input type="number" id="slot-bet" value="100" min="100" step="1" placeholder="Mise">
+                        </div>
+                        <div style="background: rgba(0,0,0,0.8); border: 2px solid var(--gold-primary); border-radius: 8px; padding: 15px; font-size: 2.5rem; display: flex; justify-content: center; gap: 15px; margin: 20px 0;" aria-hidden="true">
+                            <span id="slot-1">🍒</span>
+                            <span id="slot-2">🍒</span>
+                            <span id="slot-3">💎</span>
+                        </div>
+                        <p id="slot-status" style="margin-bottom: 15px; font-family: var(--font-heading), serif; color: var(--gold-light);" aria-live="polite">Tirez le levier !</p>
+                        <button type="button" class="btn" id="slot-play-btn" onclick="playSlots()" style="width:100%;">Spin</button>
+                    </div>
+                </div>
+
+                <!-- JEU ROULETTE -->
+                <div id="game-roulette" class="casino-view" style="display:none;">
+                    <button type="button" class="btn-outline" onclick="backToLobby()" style="padding: 6px 12px; margin-bottom: 15px; border-radius:4px; color:#fff; cursor:pointer;">⬅ Quitter</button>
+                    <div class="casino-table" style="max-width: 500px; margin: 0 auto;">
+                        <h2 style="color: rgba(255,255,255,0.8); font-size: 1.2rem;">LA ROULETTE</h2>
+                        <div class="form-group" style="max-width: 180px; margin: 15px auto;">
+                            <label for="roulette-bet" class="sr-only">Mise</label>
+                            <input type="number" id="roulette-bet" value="100" min="100" step="1" placeholder="Mise" style="text-align:center;">
+                        </div>
+
+                        <div id="roulette-wheel" style="font-size: 3rem; margin: 20px 0; color: var(--gold-primary);" aria-hidden="true">🎡</div>
+                        <p id="roulette-status" style="margin-bottom: 15px; font-weight: bold; color: var(--gold-light);" aria-live="polite">Faites vos jeux</p>
+
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button type="button" class="btn" id="roulette-rouge-btn" onclick="playRoulette('Rouge')" style="background: #e74c3c; color:white; border:none; flex:1;">Rouge (x2)</button>
+                            <button type="button" class="btn" id="roulette-noir-btn" onclick="playRoulette('Noir')" style="background: #2c3e50; color:white; border:none; flex:1;">Noir (x2)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JEU DU DÉ -->
+                <div id="game-dice" class="casino-view" style="display:none;">
+                    <button type="button" class="btn-outline" onclick="backToLobby()" style="padding: 6px 12px; margin-bottom: 15px; border-radius:4px; color:#fff; cursor:pointer;">⬅ Quitter</button>
+                    <div class="casino-table" style="max-width: 500px; margin: 0 auto;">
+                        <h2 style="color: rgba(255,255,255,0.8); font-size: 1.2rem;">JEU DU DÉ 🎲</h2>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 10px;">Probabilité : 16.66% | Gain : Mise x5</p>
+
+                        <div class="form-group" style="max-width: 180px; margin: 10px auto;">
+                            <label for="dice-bet" style="text-align:center; color: var(--gold-light);">Mise (Min 150)</label>
+                            <input type="number" id="dice-bet" value="150" min="150" step="1" style="text-align:center;">
+                        </div>
+
+                        <div class="form-group" style="max-width: 180px; margin: 10px auto;">
+                            <label for="dice-choice" style="text-align:center; color: var(--gold-light);">Numéro (1 à 6)</label>
+                            <select id="dice-choice" style="text-align:center;">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                            </select>
+                        </div>
+
+                        <div id="dice-result" style="font-size: 3rem; margin: 15px 0; color: var(--gold-primary);" aria-hidden="true">❓</div>
+                        <p id="dice-status" style="margin-bottom: 15px; font-weight: bold; color: var(--gold-light);" aria-live="polite">Prêt à lancer</p>
+
+                        <button type="button" class="btn" id="dice-play-btn" onclick="playDice()" style="width:180px;">Lancer le dé</button>
+                    </div>
+                </div>
+
+                <!-- SALON MULTIJOUEUR POKER (2 à 8 joueurs) -->
+                <div id="game-poker" class="casino-view" style="display:none;">
+                    <button type="button" class="btn-outline" onclick="backToLobby()" style="padding: 6px 12px; margin-bottom: 15px; border-radius:4px; color:#fff; cursor:pointer;">⬅ Quitter le salon</button>
+
+                    <div class="casino-table" style="max-width: 700px; margin: 0 auto;">
+                        <h2 style="color: var(--gold-light); font-size: 1.3rem;">SALON PRIVÉ POKER (2-8 Joueurs)</h2>
+                        <p id="poker-room-status" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;" aria-live="polite">En attente de joueurs...</p>
+                        <p style="color: var(--text-muted); font-size: 0.7rem; margin-bottom: 15px; font-style: italic;">Table partagée en temps réel via Firebase — tous les joueurs connectés la voient.</p>
+
+                        <!-- Configuration de table si non démarré -->
+                        <div id="poker-setup" style="margin-bottom: 20px;">
+                            <div class="form-group" style="max-width: 220px; margin: 0 auto 15px auto;">
+                                <label for="poker-buyin" style="color:var(--gold-light); text-align:center;">Mise d'entrée (Buy-in)</label>
+                                <input type="number" id="poker-buyin" value="200" min="100" step="1" style="text-align:center;">
+                            </div>
+                            <button type="button" class="btn" onclick="createOrJoinPokerTable()">S'asseoir à la table</button>
+                        </div>
+
+                        <!-- Plateau de jeu actif -->
+                        <div id="poker-board" style="display:none;">
+                            <div style="background: rgba(0,0,0,0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--gold-primary);">
+                                <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--gold-primary);">Pot Commun</div>
+                                <div id="poker-pot" style="font-size: 1.5rem; font-family: var(--font-heading), serif; color: #fff;">0 Jetons</div>
+                            </div>
+
+                            <div style="margin-bottom: 15px;">
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">Joueurs à la table (<span id="poker-players-count">0</span>/8) :</span>
+                                <div id="poker-seats-list" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px;"></div>
+                            </div>
+
+                            <div id="poker-actions" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; display: none;">
+                                <button type="button" class="btn" onclick="pokerAction('suivre')" style="background: var(--success); color: #fff;">Suivre / Parler</button>
+                                <button type="button" class="btn" onclick="pokerAction('relancer')" style="background: var(--gold-primary); color: #000;">Relancer (+100)</button>
+                                <button type="button" class="btn" onclick="pokerAction('passer')" style="background: var(--danger); color: #fff;">Se Coucher</button>
+                            </div>
+
+                            <button type="button" id="poker-start-btn" class="btn" onclick="startPokerHand()" style="margin-top: 10px; display:none;">Lancer la manche</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid" style="margin-top: 30px;">
+                    <div class="card">
+                        <h3>🔴 Mises en Direct des Joueurs</h3>
+                        <div id="live-bets-list" style="margin-top: 10px; max-height: 200px; overflow-y: auto; font-size: 0.85rem;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Livre de Bord & Résultats</h3>
+                        <div id="casino-history-list" style="margin-top: 10px; max-height: 200px; overflow-y: auto; font-size: 0.85rem;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION EMPLOYE -->
+        <section id="employe" class="section">
+            <div class="container">
+                <h1 style="font-family: var(--font-heading), serif; color: var(--gold-primary); margin-bottom: 25px; text-align: center; font-size: 2rem;">Administration du Complexe</h1>
+                <p style="color: var(--text-muted); font-size: 0.75rem; text-align:center; margin-top:-15px; margin-bottom: 25px; font-style: italic;">Données synchronisées en temps réel via Firebase — visibles par tout le staff, sur tout appareil.</p>
+
+                <div class="grid">
+                    <div class="card" style="border-top: 4px solid var(--success);">
+                        <h3>Commandes Cuisine</h3>
+                        <div id="admin-orders-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px;"></div>
+                    </div>
+
+                    <div class="card" style="border-top: 4px solid var(--gold-primary);">
+                        <h3>Demandes VIP</h3>
+                        <div id="admin-vip-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px;"></div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px; border-top: 4px solid var(--text-muted);">
+                    <h3>Registre des Clients & Employés</h3>
+                    <div id="admin-users-list" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"></div>
+                </div>
+
+                <div class="grid" style="margin-top: 20px;">
+                    <div class="card">
+                        <h3>Outil : Mise à jour Menu</h3>
+                        <form onsubmit="addNewDish(event)">
+                            <div class="form-group">
+                                <label for="new-dish-name" class="sr-only">Nom du plat</label>
+                                <input type="text" id="new-dish-name" required placeholder="Nom du plat">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-dish-desc" class="sr-only">Description</label>
+                                <input type="text" id="new-dish-desc" required placeholder="Description détaillée">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-dish-price" class="sr-only">Prix</label>
+                                <input type="text" id="new-dish-price" required placeholder="Prix (ex: 45 $)">
+                            </div>
+                            <button type="submit" class="btn" style="width: 100%;">Ajouter à la carte</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>Outil : Créditer Jetons</h3>
+                        <form onsubmit="addCasinoPoints(event)">
+                            <div style="display:flex; gap:10px;" class="form-group">
+                                <label for="target-prenom" class="sr-only">Prénom RP</label>
+                                <input type="text" id="target-prenom" required placeholder="Prénom RP">
+                                <label for="target-nom" class="sr-only">Nom RP</label>
+                                <input type="text" id="target-nom" required placeholder="Nom RP">
+                            </div>
+                            <div class="form-group">
+                                <label for="target-points" class="sr-only">Montant</label>
+                                <input type="number" id="target-points" required placeholder="Montant">
+                            </div>
+                            <button type="submit" class="btn" style="width: 100%;">Valider la transaction</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODALS -->
+    <div id="vipModal" class="modal" onclick="handleOverlayClick(event, 'vipModal')">
+        <div class="modal-content" style="text-align: center;" role="dialog" aria-modal="true" aria-labelledby="vip-modal-title">
+            <button type="button" onclick="closeModal('vipModal')" aria-label="Fermer" style="position:absolute; top:12px; right:15px; background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer;">&times;</button>
+            <h2 id="vip-modal-title" style="margin-bottom: 15px;">Accès Privilège VIP</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">Sélectionnez votre méthode de paiement.</p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button type="button" class="btn" onclick="bookVipWithTokens()" style="padding: 12px;">Régler 1500 Jetons</button>
+                <button type="button" class="btn btn-outline" onclick="bookVipOnSite()" style="padding: 12px;">Régler 1000 € sur place</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginModal" class="modal" onclick="handleOverlayClick(event, 'loginModal')">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+            <button type="button" onclick="closeModal('loginModal')" aria-label="Fermer" style="position:absolute; top:12px; right:15px; background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer;">&times;</button>
+            <h2 id="login-modal-title" style="text-align:center; margin-bottom: 20px;">Identification</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-prenom" class="sr-only">Prénom RP</label>
+                    <input type="text" id="login-prenom" required placeholder="Prénom RP" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="login-nom" class="sr-only">Nom RP</label>
+                    <input type="text" id="login-nom" required placeholder="Nom RP" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="login-pass" class="sr-only">Mot de passe</label>
+                    <input type="password" id="login-pass" required placeholder="Mot de passe" autocomplete="off">
+                </div>
+                <p id="login-error" style="color: var(--danger); font-size: 0.8rem; display: none; margin-bottom: 10px;" role="alert">Identifiants invalides.</p>
+                <button type="submit" class="btn" id="login-submit-btn" style="width:100%;">Connexion</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="registerModal" class="modal" onclick="handleOverlayClick(event, 'registerModal')">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="register-modal-title">
+            <button type="button" onclick="closeModal('registerModal')" aria-label="Fermer" style="position:absolute; top:12px; right:15px; background:none; border:none; color:#fff; font-size:1.3rem; cursor:pointer;">&times;</button>
+            <h2 id="register-modal-title" style="text-align:center; margin-bottom: 20px;">Nouveau Membre</h2>
+            <form onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="reg-prenom" class="sr-only">Prénom RP</label>
+                    <input type="text" id="reg-prenom" required placeholder="Prénom RP" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="reg-nom" class="sr-only">Nom RP</label>
+                    <input type="text" id="reg-nom" required placeholder="Nom RP" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="reg-pass" class="sr-only">Mot de passe</label>
+                    <input type="password" id="reg-pass" required placeholder="Mot de passe" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="reg-code" class="sr-only">Code Employé</label>
+                    <input type="password" id="reg-code" placeholder="Code Employé (Facultatif)" autocomplete="off">
+                </div>
+                <p id="reg-error" style="color: var(--danger); font-size: 0.8rem; display: none; margin-bottom: 10px;" role="alert">Personne déjà enregistrée.</p>
+                <button type="submit" class="btn" id="register-submit-btn" style="width:100%;">Valider l'inscription</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    <footer>
+        <p>&copy; 2026 Au Fil du Temps | Complexe de Luxe & Divertissement. Compatible multiplateforme.</p>
+    </footer>
+
+    <script type="module">
+        'use strict';
+
+        /* ============================================================
+           FIREBASE : IMPORTS & CONFIGURATION
+           ============================================================ */
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import {
+            getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc,
+            onSnapshot, addDoc, query, orderBy, limit, increment, runTransaction,
+            enableNetwork, disableNetwork
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Remplace ces valeurs par celles de TON projet Firebase
+        // (Console Firebase → Paramètres du projet → Vos applications → Config SDK)
+        const firebaseConfig = {
+            apiKey: "VOTRE_API_KEY",
+            authDomain: "VOTRE_AUTH_DOMAIN",
+            projectId: "VOTRE_PROJECT_ID",
+            storageBucket: "VOTRE_STORAGE_BUCKET",
+            messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
+            appId: "VOTRE_APP_ID"
+        };
+
+        const isFirebaseConfigured = !Object.values(firebaseConfig).some(v => typeof v === 'string' && v.startsWith('VOTRE_'));
+
+        let app = null, db = null;
+        if (isFirebaseConfigured) {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+            } catch (e) {
+                console.error("Échec de l'initialisation Firebase :", e);
+            }
+        }
+
+        const COLLECTIONS = {
+            users: 'users',
+            menu: 'menu',
+            orders: 'commandesRestaurant',
+            vipRequests: 'vipRequests',
+            history: 'casinoHistory',
+            liveBets: 'liveBets'
+        };
+        const POKER_TABLE_PATH = ['pokerTables', 'table1'];
+
+        const GAME_RULES = {
+            minBetDefault: 100,
+            minBetDice: 150,
+            diceMultiplier: 5,
+            slotJackpotMultiplier: 5,
+            slotMinorMultiplier: 1.5,
+            blackjackPayout: 2.5,
+            rouletteMultiplier: 2,
+            vipPriceTokens: 1500,
+            vipPriceCash: '1000 €',
+            pokerMinPlayers: 2,
+            pokerMaxPlayers: 8,
+            pokerRaiseAmount: 100,
+            pokerBlind: 50,
+            welcomeJetons: 2000,
+            liveBetsCap: 20,
+            historyCap: 30
+        };
+
+        const SESSION_KEY = 'aft_current_user_id'; // pointeur local : qui est connecté sur CET appareil
+
+        /* ============================================================
+           UTILITAIRES
+           ============================================================ */
+        function escapeHtml(value) {
+            const str = (value === null || value === undefined) ? '' : String(value);
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function toSlugPart(str) {
+            return String(str || '')
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase().trim()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-+|-+$)/g, '') || 'x';
+        }
+        function userSlug(prenom, nom) { return `${toSlugPart(prenom)}_${toSlugPart(nom)}`; }
+
+        async function hashText(text) {
+            try {
+                if (window.crypto && window.crypto.subtle) {
+                    const enc = new TextEncoder().encode(text);
+                    const digest = await window.crypto.subtle.digest('SHA-256', enc);
+                    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+                }
+            } catch (e) { console.warn('Hachage indisponible, repli sur texte brut (contexte non sécurisé ?)', e); }
+            return 'plain:' + text; // repli si crypto.subtle indisponible (contexte non-HTTPS)
+        }
+
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast' + (type ? ' ' + type : '');
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('leaving'); setTimeout(() => toast.remove(), 250); }, 3800);
+        }
+
+        function setFirebaseStatus(state, text) {
+            const el = document.getElementById('fb-status');
+            const label = document.getElementById('fb-status-text');
+            if (!el || !label) return;
+            el.classList.remove('online', 'offline');
+            if (state) el.classList.add(state);
+            label.textContent = text;
+        }
+
+        /* ============================================================
+           ÉTAT LOCAL (miroir des données Firestore, tenu à jour par onSnapshot)
+           ============================================================ */
+        let users = [];
+        let menuItems = [];
+        let orders = [];
+        let vipRequests = [];
+        let casinoHistory = [];
+        let liveBets = [];
+        let leaderboard = [];
+        let pokerTable = { players: [], pot: 0, status: 'attente' };
+        let currentUser = null;
+
+        function findUserById(id) { return users.find(u => u && u.id === id); }
+        function findUserByNomPrenom(nom, prenom) {
+            const slug = userSlug(prenom, nom);
+            return users.find(u => u && u.id === slug);
+        }
+        function findDishById(id) { return menuItems.find(item => item && item.id === id); }
+
+        function refreshCurrentUserFromUsers() {
+            if (!currentUser) return;
+            const fresh = findUserById(currentUser.id);
+            if (fresh) { currentUser = fresh; checkAuthUI(); }
+        }
+
+        /* ============================================================
+           COUCHE FIRESTORE
+           ============================================================ */
+        function requireDb() {
+            if (!db) { showToast("Firebase n'est pas configuré : impossible de contacter le serveur.", 'error'); return false; }
+            return true;
+        }
+
+        async function fbGetUser(slug) {
+            const snap = await getDoc(doc(db, COLLECTIONS.users, slug));
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+        }
+
+        async function fbCreateUser(slug, data) { await setDoc(doc(db, COLLECTIONS.users, slug), data); }
+        async function fbUpdateUser(slug, fields) { await updateDoc(doc(db, COLLECTIONS.users, slug), fields); }
+
+        async function fbAddOrder(data) { await addDoc(collection(db, COLLECTIONS.orders), data); }
+        async function fbDeleteOrder(id) { await deleteDoc(doc(db, COLLECTIONS.orders, id)); }
+
+        async function fbAddVipRequest(data) { await addDoc(collection(db, COLLECTIONS.vipRequests), data); }
+        async function fbDeleteVipRequest(id) { await deleteDoc(doc(db, COLLECTIONS.vipRequests, id)); }
+
+        async function fbAddMenuItem(data) { await addDoc(collection(db, COLLECTIONS.menu), data); }
+
+        async function fbAddHistoryAndTrim(entry) {
+            await addDoc(collection(db, COLLECTIONS.history), entry);
+            trimCollection(COLLECTIONS.history, 'timestamp', GAME_RULES.historyCap);
+        }
+        async function fbAddLiveBetAndTrim(entry) {
+            await addDoc(collection(db, COLLECTIONS.liveBets), entry);
+            trimCollection(COLLECTIONS.liveBets, 'timestamp', GAME_RULES.liveBetsCap);
+        }
+        async function trimCollection(collectionName, field, cap) {
+            try {
+                const q = query(collection(db, collectionName), orderBy(field, 'desc'), limit(cap + 15));
+                const snap = await new Promise((resolve, reject) => {
+                    const unsub = onSnapshot(q, s => { unsub(); resolve(s); }, reject);
+                });
+                const docs = snap.docs;
+                if (docs.length > cap) {
+                    const toDelete = docs.slice(cap);
+                    await Promise.all(toDelete.map(d => deleteDoc(d.ref).catch(() => {})));
+                }
+            } catch (e) { /* nettoyage best-effort, non bloquant */ }
+        }
+
+        /* ============================================================
+           ÉCOUTEURS TEMPS RÉEL
+           ============================================================ */
+        function attachListeners() {
+            onSnapshot(collection(db, COLLECTIONS.users), snap => {
+                users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderAdminUsers();
+                refreshCurrentUserFromUsers();
+            }, err => console.error('Écoute users:', err));
+
+            onSnapshot(query(collection(db, COLLECTIONS.users), orderBy('jetons', 'desc'), limit(10)), snap => {
+                leaderboard = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderLeaderboard();
+            }, err => console.error('Écoute classement:', err));
+
+            onSnapshot(collection(db, COLLECTIONS.menu), snap => {
+                menuItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderMenu();
+            }, err => console.error('Écoute menu:', err));
+
+            onSnapshot(query(collection(db, COLLECTIONS.orders), orderBy('timestamp', 'asc')), snap => {
+                orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderAdminOrders();
+            }, err => console.error('Écoute commandes:', err));
+
+            onSnapshot(query(collection(db, COLLECTIONS.vipRequests), orderBy('timestamp', 'asc')), snap => {
+                vipRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderAdminVipRequests();
+            }, err => console.error('Écoute VIP:', err));
+
+            onSnapshot(query(collection(db, COLLECTIONS.history), orderBy('timestamp', 'desc'), limit(GAME_RULES.historyCap)), snap => {
+                casinoHistory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderCasinoHistory();
+            }, err => console.error('Écoute historique:', err));
+
+            onSnapshot(query(collection(db, COLLECTIONS.liveBets), orderBy('timestamp', 'desc'), limit(GAME_RULES.liveBetsCap)), snap => {
+                liveBets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderLiveBets();
+            }, err => console.error('Écoute mises en direct:', err));
+
+            onSnapshot(doc(db, ...POKER_TABLE_PATH), snap => {
+                pokerTable = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
+                renderPokerTable();
+            }, err => console.error('Écoute poker:', err));
+        }
+
+        /* ============================================================
+           INITIALISATION / NAVIGATION
+           ============================================================ */
+        async function initApp() {
+            if (!isFirebaseConfigured) {
+                document.getElementById('fb-config-banner').style.display = 'block';
+                setFirebaseStatus('offline', 'Firebase non configuré');
+            } else {
+                setFirebaseStatus(null, 'Connexion...');
+                try {
+                    attachListeners();
+                    setFirebaseStatus('online', 'En ligne');
+                } catch (e) {
+                    console.error(e);
+                    setFirebaseStatus('offline', 'Hors ligne');
+                    showToast("Connexion à Firebase impossible. Vérifie ta configuration et ta connexion.", 'error');
+                }
+            }
+
+            const savedId = localStorage.getItem(SESSION_KEY);
+            if (savedId && db) {
+                try {
+                    const snap = await getDoc(doc(db, COLLECTIONS.users, savedId));
+                    if (snap.exists()) { currentUser = { id: snap.id, ...snap.data() }; }
+                    else { localStorage.removeItem(SESSION_KEY); }
+                } catch (e) { console.warn('Session non restaurée :', e); }
+            }
+            checkAuthUI();
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.modal').forEach(m => { if (m.style.display === 'flex') closeModal(m.id); });
+                }
+            });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('nav a').forEach(l => {
+                if (l.getAttribute('onclick') && l.getAttribute('onclick').includes(tabId)) { l.classList.add('active'); }
+            });
+            if (tabId === 'casino') { backToLobby(); }
+        }
+
+        function enterClubDancefloor() {
+            if (!currentUser) { showToast("Veuillez vous identifier pour entrer dans le club."); openModal('loginModal'); return; }
+            showToast(`Bienvenue sur la piste de danse, ${currentUser.prenom} !`, 'success');
+        }
+
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
+            if (id === 'registerModal') document.getElementById('reg-error').style.display = 'none';
+            if (id === 'loginModal') document.getElementById('login-error').style.display = 'none';
+            const firstInput = document.querySelector(`#${id} input`);
+            if (firstInput) setTimeout(() => firstInput.focus(), 50);
+        }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function handleOverlayClick(event, id) { if (event.target && event.target.id === id) closeModal(id); }
+
+        /* ============================================================
+           AUTHENTIFICATION (RP simplifiée : nom+prénom+mot de passe)
+           ============================================================ */
+        async function handleRegister(e) {
+            e.preventDefault();
+            if (!requireDb()) return;
+            document.getElementById('reg-error').style.display = 'none';
+
+            const nom = document.getElementById('reg-nom').value.trim();
+            const prenom = document.getElementById('reg-prenom').value.trim();
+            const pass = document.getElementById('reg-pass').value;
+            const code = document.getElementById('reg-code').value;
+            const slug = userSlug(prenom, nom);
+
+            const submitBtn = document.getElementById('register-submit-btn');
+            submitBtn.disabled = true;
+            try {
+                const existing = await fbGetUser(slug);
+                if (existing) { document.getElementById('reg-error').style.display = 'block'; return; }
+
+                const isEmploye = (code === "Jean Jack 123");
+                const passHash = await hashText(pass);
+                const newUser = {
+                    nom, prenom, passHash,
+                    jetons: GAME_RULES.welcomeJetons,
+                    employe: isEmploye,
+                    isVip: false,
+                    dateCreation: new Date().toISOString()
+                };
+                await fbCreateUser(slug, newUser);
+
+                currentUser = { id: slug, ...newUser };
+                localStorage.setItem(SESSION_KEY, slug);
+
+                e.target.reset();
+                closeModal('registerModal');
+                checkAuthUI();
+                showToast(isEmploye ? "Compte Staff créé ! 2000 jetons offerts." : "Bienvenue ! 2000 jetons offerts.", 'success');
+            } catch (err) {
+                console.error(err);
+                showToast("Erreur lors de l'inscription. Vérifie ta connexion.", 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            if (!requireDb()) return;
+            document.getElementById('login-error').style.display = 'none';
+
+            const nom = document.getElementById('login-nom').value.trim();
+            const prenom = document.getElementById('login-prenom').value.trim();
+            const pass = document.getElementById('login-pass').value;
+            const slug = userSlug(prenom, nom);
+
+            const submitBtn = document.getElementById('login-submit-btn');
+            submitBtn.disabled = true;
+            try {
+                const user = await fbGetUser(slug);
+                const passHash = await hashText(pass);
+                if (!user || user.passHash !== passHash) {
+                    document.getElementById('login-error').style.display = 'block';
+                    return;
+                }
+                currentUser = user;
+                localStorage.setItem(SESSION_KEY, slug);
+                e.target.reset();
+                closeModal('loginModal');
+                checkAuthUI();
+            } catch (err) {
+                console.error(err);
+                showToast("Erreur de connexion. Vérifie ta connexion réseau.", 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        function logout() { currentUser = null; localStorage.removeItem(SESSION_KEY); checkAuthUI(); switchTab('restaurant'); }
+
+        function checkAuthUI() {
+            const authPanel = document.getElementById('user-panel-auth');
+            const loggedPanel = document.getElementById('user-panel-logged');
+
+            if (currentUser) {
+                authPanel.style.display = 'none';
+                loggedPanel.style.display = 'flex';
+                document.getElementById('welcome-user').innerHTML = `${escapeHtml(currentUser.prenom)} ${escapeHtml(currentUser.nom)} ${currentUser.isVip ? '<span style="color:var(--gold-primary); font-size:0.75rem;">[VIP]</span>' : ''}`;
+                document.getElementById('order-nom').value = currentUser.nom;
+                document.getElementById('order-prenom').value = currentUser.prenom;
+                document.getElementById('nav-employe').style.display = currentUser.employe ? 'block' : 'none';
+                document.getElementById('user-points').innerText = currentUser.jetons || 0;
+            } else {
+                authPanel.style.display = 'flex';
+                loggedPanel.style.display = 'none';
+                document.getElementById('nav-employe').style.display = 'none';
+                document.getElementById('user-points').innerText = "0";
+            }
+        }
+
+        /* ============================================================
+           MENU RESTAURANT
+           ============================================================ */
+        function renderMenu() {
+            const grid = document.getElementById('menu-grid');
+            const select = document.getElementById('order-plat');
+            grid.innerHTML = '';
+            select.innerHTML = '';
+            menuItems.forEach(item => {
+                grid.innerHTML += `<div class="menu-item"><div class="menu-item-info"><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.desc)}</p></div><div class="menu-price">${escapeHtml(item.price)}</div></div>`;
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = `${item.name} (${item.price})`;
+                select.appendChild(opt);
+            });
+        }
+
+        async function submitOrder(e) {
+            e.preventDefault();
+            if (!requireDb()) return;
+            const nom = document.getElementById('order-nom').value.trim();
+            const prenom = document.getElementById('order-prenom').value.trim();
+            const dishId = document.getElementById('order-plat').value;
+            const dish = findDishById(dishId);
+            if (!nom || !prenom || !dish) { showToast("Merci de renseigner votre identité et un plat valide.", 'error'); return; }
+
+            try {
+                await fbAddOrder({
+                    userId: currentUser ? currentUser.id : null,
+                    nom, prenom, plat: dish.name,
+                    statut: 'En attente',
+                    timestamp: new Date().toISOString()
+                });
+                showToast("Votre commande a été transmise au chef.", 'success');
+                e.target.reset();
+                if (currentUser) {
+                    document.getElementById('order-nom').value = currentUser.nom;
+                    document.getElementById('order-prenom').value = currentUser.prenom;
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("Impossible d'envoyer la commande. Réessaie.", 'error');
+            }
+        }
+
+        /* ============================================================
+           ADMINISTRATION
+           ============================================================ */
+        function renderAdminOrders() {
+            const container = document.getElementById('admin-orders-list');
+            if (!container) return;
+            if (orders.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucune commande en cours.</p>`; return; }
+            container.innerHTML = orders.map(ord => `
+                <div class="admin-row">
+                    <div><strong style="color:var(--gold-light);">${escapeHtml(ord.prenom)} ${escapeHtml(ord.nom)}</strong><br><span style="font-size:0.85rem;">Plat: ${escapeHtml(ord.plat)}</span></div>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:0.7rem;" onclick="completeOrder('${ord.id}')">Servir</button>
+                </div>`).join('');
+        }
+        async function completeOrder(id) {
+            try { await fbDeleteOrder(id); } catch (e) { console.error(e); showToast("Erreur lors de la mise à jour.", 'error'); }
+        }
+
+        function renderAdminVipRequests() {
+            const container = document.getElementById('admin-vip-list');
+            if (!container) return;
+            if (vipRequests.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun client en attente.</p>`; return; }
+            container.innerHTML = vipRequests.map(req => `
+                <div class="admin-row">
+                    <div><strong style="color:var(--gold-light);">${escapeHtml(req.prenom)} ${escapeHtml(req.nom)}</strong><br><span style="font-size:0.8rem; color:var(--text-muted);">A payer: ${escapeHtml(req.montant)}</span></div>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:0.7rem;" onclick="validateVipPayment('${req.id}')">Valider ${escapeHtml(req.montant)}</button>
+                </div>`).join('');
+        }
+        async function validateVipPayment(id) {
+            const req = vipRequests.find(r => r.id === id);
+            if (!req) return;
+            try {
+                await fbDeleteVipRequest(id);
+                const target = findUserByNomPrenom(req.nom, req.prenom);
+                if (target) {
+                    await fbUpdateUser(target.id, { isVip: true });
+                    if (currentUser && currentUser.id === target.id) { currentUser.isVip = true; checkAuthUI(); }
+                }
+                showToast("Paiement validé. Statut VIP accordé.", 'success');
+            } catch (e) { console.error(e); showToast("Erreur lors de la validation.", 'error'); }
+        }
+
+        function renderAdminUsers() {
+            const container = document.getElementById('admin-users-list');
+            if (!container) return;
+            if (users.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun utilisateur enregistré.</p>`; return; }
+            container.innerHTML = users.filter(u => u && u.nom).map(u => `
+                <div class="admin-row" style="border-left-color: ${u.employe ? 'var(--success)' : 'var(--text-muted)'}">
+                    <div>
+                        <strong style="font-size: 1rem; color: #fff;">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)}</strong>
+                        <div style="margin-top: 3px;">${u.employe ? '<span class="badge badge-employe">Staff</span>' : ''} ${u.isVip ? '<span class="badge badge-vip">VIP</span>' : ''}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-family: var(--font-heading), serif; color: var(--gold-light); font-size: 1.1rem;">${u.jetons || 0} pts</span>
+                        <div style="display:flex; gap:5px; margin-top:4px;">
+                            <button type="button" class="btn-outline" style="font-size:0.65rem; padding:3px 6px; cursor:pointer;" onclick="toggleRole('${u.id}', 'employe')">${u.employe ? '- Staff' : '+ Staff'}</button>
+                            <button type="button" class="btn-outline" style="font-size:0.65rem; padding:3px 6px; cursor:pointer;" onclick="toggleRole('${u.id}', 'isVip')">${u.isVip ? '- VIP' : '+ VIP'}</button>
+                        </div>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function toggleRole(id, roleProp) {
+            const target = findUserById(id);
+            if (!target) return;
+            try {
+                await fbUpdateUser(id, { [roleProp]: !target[roleProp] });
+                if (currentUser && currentUser.id === id) { currentUser[roleProp] = !target[roleProp]; checkAuthUI(); }
+            } catch (e) { console.error(e); showToast("Erreur lors de la mise à jour du rôle.", 'error'); }
+        }
+
+        async function addNewDish(e) {
+            e.preventDefault();
+            if (!requireDb()) return;
+            const name = document.getElementById('new-dish-name').value.trim();
+            const desc = document.getElementById('new-dish-desc').value.trim();
+            const price = document.getElementById('new-dish-price').value.trim();
+            if (!name || !desc || !price) { showToast("Merci de remplir tous les champs du plat.", 'error'); return; }
+            try {
+                await fbAddMenuItem({ name, desc, price });
+                e.target.reset();
+                showToast("Menu mis à jour !", 'success');
+            } catch (err) { console.error(err); showToast("Erreur lors de l'ajout du plat.", 'error'); }
+        }
+
+        async function addCasinoPoints(e) {
+            e.preventDefault();
+            if (!requireDb()) return;
+            const n = document.getElementById('target-nom').value.trim();
+            const p = document.getElementById('target-prenom').value.trim();
+            const pts = parseInt(document.getElementById('target-points').value, 10);
+            if (!Number.isFinite(pts)) { showToast("Montant invalide.", 'error'); return; }
+            const target = findUserByNomPrenom(n, p);
+            if (!target) { showToast("Client introuvable.", 'error'); return; }
+            try {
+                await fbUpdateUser(target.id, { jetons: increment(pts) });
+                if (currentUser && currentUser.id === target.id) { currentUser.jetons = (currentUser.jetons || 0) + pts; checkAuthUI(); }
+                showToast(`${pts >= 0 ? '+' : ''}${pts} jetons crédités.`, 'success');
+                e.target.reset();
+            } catch (err) { console.error(err); showToast("Erreur lors du crédit.", 'error'); }
+        }
+
+        /* ============================================================
+           CLASSEMENT
+           ============================================================ */
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboard-list');
+            if (!container) return;
+            if (leaderboard.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun joueur classé pour le moment.</p>`; return; }
+            container.innerHTML = leaderboard.map((u, i) => `
+                <div class="rank-row">
+                    <span class="rank-num">${i + 1}</span>
+                    <span class="rank-name">${escapeHtml(u.prenom)} ${escapeHtml(u.nom)} ${u.isVip ? '<span class="badge badge-vip" style="margin-left:4px;">VIP</span>' : ''}</span>
+                    <span class="rank-jetons">${u.jetons || 0} pts</span>
+                </div>`).join('');
+        }
+
+        /* ============================================================
+           MISES EN DIRECT & HISTORIQUE
+           ============================================================ */
+        async function recordLiveBet(game, amount, details = '') {
+            if (!currentUser || !db) return;
+            try {
+                await fbAddLiveBetAndTrim({
+                    nom: currentUser.nom, prenom: currentUser.prenom,
+                    game, amount, details,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (e) { console.error('Erreur mise en direct:', e); }
+        }
+
+        function renderLiveBets() {
+            const container = document.getElementById('live-bets-list');
+            if (!container) return;
+            if (liveBets.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">Aucune mise en direct pour le moment.</p>'; return; }
+            container.innerHTML = liveBets.map(b => `
+                <div class="admin-row" style="border-left-color: var(--gold-primary);">
+                    <div>
+                        <strong style="color:#fff;">${escapeHtml(b.prenom)} ${escapeHtml(b.nom)}</strong>
+                        <span style="color:var(--gold-light); font-size:0.75rem;">(${escapeHtml(b.game)})</span>
+                        ${b.details ? `<br><span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(b.details)}</span>` : ''}
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-family: var(--font-heading), serif; color: var(--gold-primary); font-weight: bold;">${b.amount} jetons</span>
+                        <br><span style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(new Date(b.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</span>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function recordCasinoGame(game, bet, win, diff) {
+            if (!currentUser || !db) return;
+            try {
+                await fbAddHistoryAndTrim({
+                    nom: currentUser.nom, prenom: currentUser.prenom,
+                    game, bet, win, diff,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (e) { console.error('Erreur historique casino:', e); }
+        }
+        function renderCasinoHistory() {
+            const c = document.getElementById('casino-history-list');
+            if (!c) return;
+            if (casinoHistory.length === 0) { c.innerHTML = '<p style="color:var(--text-muted);">Aucune activité récente.</p>'; return; }
+            c.innerHTML = casinoHistory.map(h => `
+                <div class="admin-row" style="border-left-color: ${h.win ? 'var(--success)' : 'var(--danger)'}">
+                    <div><strong>${escapeHtml(h.prenom)} ${escapeHtml(h.nom)}</strong> <span style="color:var(--text-muted); font-size:0.75rem;">(${escapeHtml(h.game)})</span><br><span style="font-size:0.8rem;">Mise : ${h.bet}</span></div>
+                    <div style="text-align:right;"><span style="color:${h.win ? 'var(--success)' : 'var(--danger)'}; font-weight:bold;">${h.win ? '+' + h.diff : '-' + h.bet}</span><br><span style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span></div>
+                </div>`).join('');
+        }
+
+        /* ============================================================
+           POKER MULTIJOUEUR — table partagée via transaction Firestore
+           ============================================================ */
+        function openCasinoGame(gameName) {
+            document.querySelectorAll('.casino-view').forEach(v => v.style.display = 'none');
+            document.getElementById(`game-${gameName}`).style.display = 'block';
+            if (gameName === 'poker') renderPokerTable();
+        }
+        function backToLobby() {
+            document.querySelectorAll('.casino-view').forEach(v => v.style.display = 'none');
+            document.getElementById('casino-lobby').style.display = 'block';
+        }
+
+        async function createOrJoinPokerTable() {
+            if (!currentUser) { showToast("Connectez-vous pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!requireDb()) return;
+
+            const buyin = parseInt(document.getElementById('poker-buyin').value, 10) || 200;
+            const tableRef = doc(db, ...POKER_TABLE_PATH);
+
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(tableRef);
+                    const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
+
+                    if (table.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom)) {
+                        return; // déjà assis
+                    }
+                    if (table.players.length >= GAME_RULES.pokerMaxPlayers) {
+                        throw new Error('TABLE_PLEINE');
+                    }
+                    if (!currentUser.jetons || currentUser.jetons < buyin) {
+                        throw new Error('SOLDE_INSUFFISANT');
+                    }
+
+                    const userRef = doc(db, COLLECTIONS.users, currentUser.id);
+                    tx.update(userRef, { jetons: increment(-buyin) });
+                    table.players.push({ nom: currentUser.nom, prenom: currentUser.prenom, stack: buyin, folded: false });
+                    tx.set(tableRef, table);
+                });
+
+                currentUser.jetons -= buyin;
+                checkAuthUI();
+                document.getElementById('poker-setup').style.display = 'none';
+                document.getElementById('poker-board').style.display = 'block';
+                playSfx('card');
+                recordLiveBet('Poker Texas', buyin, "Achat de tapis (Buy-in)");
+            } catch (err) {
+                if (err.message === 'TABLE_PLEINE') showToast(`La table est complète (maximum ${GAME_RULES.pokerMaxPlayers} joueurs).`, 'error');
+                else if (err.message === 'SOLDE_INSUFFISANT') showToast("Solde insuffisant pour payer la mise d'entrée !", 'error');
+                else { console.error(err); showToast("Erreur lors de la connexion à la table.", 'error'); }
+            }
+        }
+
+        function renderPokerTable() {
+            const countElem = document.getElementById('poker-players-count');
+            const potElem = document.getElementById('poker-pot');
+            if (!countElem || !potElem) return;
+
+            countElem.innerText = pokerTable.players.length;
+            potElem.innerText = pokerTable.pot + " Jetons";
+
+            const seatsContainer = document.getElementById('poker-seats-list');
+            seatsContainer.innerHTML = pokerTable.players.map(p => `
+                <div style="background: rgba(255,255,255,0.05); border: 1px solid ${p.folded ? 'var(--danger)' : 'var(--glass-border)'}; padding: 8px 12px; border-radius: 6px; text-align:center; min-width: 100px;">
+                    <div style="font-size:0.75rem; color:var(--gold-light);">${escapeHtml(p.prenom)} ${escapeHtml(p.nom)}</div>
+                    <div style="font-size:0.9rem; font-weight:bold; color:#fff;">${p.stack} pts</div>
+                    ${p.folded ? '<span style="font-size:0.6rem; color:var(--danger);">Couché</span>' : ''}
+                </div>`).join('');
+
+            const isPlayerSeated = currentUser && pokerTable.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
+            if (isPlayerSeated) {
+                document.getElementById('poker-setup').style.display = 'none';
+                document.getElementById('poker-board').style.display = 'block';
+            }
+
+            if (pokerTable.players.length >= GAME_RULES.pokerMinPlayers && pokerTable.status === 'attente') {
+                document.getElementById('poker-start-btn').style.display = 'block';
+                document.getElementById('poker-actions').style.display = 'none';
+                document.getElementById('poker-room-status').innerText = "Prêt à démarrer ! En attente du lancement.";
+            } else if (pokerTable.players.length < GAME_RULES.pokerMinPlayers) {
+                document.getElementById('poker-start-btn').style.display = 'none';
+                document.getElementById('poker-actions').style.display = 'none';
+                document.getElementById('poker-room-status').innerText = `En attente d'autres joueurs (minimum ${GAME_RULES.pokerMinPlayers} requis)...`;
+            } else if (pokerTable.status === 'en_cours') {
+                document.getElementById('poker-start-btn').style.display = 'none';
+                document.getElementById('poker-actions').style.display = 'flex';
+                document.getElementById('poker-room-status').innerText = "Manche de Poker en cours ! Faites vos choix.";
+            }
+        }
+
+        async function startPokerHand() {
+            if (!requireDb()) return;
+            const tableRef = doc(db, ...POKER_TABLE_PATH);
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(tableRef);
+                    const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
+                    table.status = 'en_cours';
+                    table.pot = table.players.length * GAME_RULES.pokerBlind;
+                    table.players = table.players.map(p => ({ ...p, stack: p.stack - GAME_RULES.pokerBlind, folded: false }));
+                    tx.set(tableRef, table);
+                });
+                playSfx('card');
+                recordLiveBet('Poker Texas', GAME_RULES.pokerBlind, 'Blinde initiale');
+            } catch (e) { console.error(e); showToast("Erreur lors du lancement de la manche.", 'error'); }
+        }
+
+        async function pokerAction(actionType) {
+            if (!currentUser || !requireDb()) return;
+            const tableRef = doc(db, ...POKER_TABLE_PATH);
+            let outcome = null;
+
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(tableRef);
+                    const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
+                    const players = table.players.map(p => ({ ...p }));
+                    const player = players.find(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
+                    if (!player) return;
+
+                    if (actionType === 'relancer') {
+                        if (player.stack < GAME_RULES.pokerRaiseAmount) { outcome = 'INSUFFISANT'; return; }
+                        player.stack -= GAME_RULES.pokerRaiseAmount;
+                        table.pot += GAME_RULES.pokerRaiseAmount;
+                        outcome = 'relance';
+                    } else if (actionType === 'passer') {
+                        player.folded = true;
+                        outcome = 'couche';
+                    } else {
+                        outcome = 'suivre';
+                    }
+
+                    const activePlayers = players.filter(p => !p.folded);
+                    if (activePlayers.length === 1) {
+                        const winner = activePlayers[0];
+                        winner.stack += table.pot;
+                        const winnerUser = findUserByNomPrenom(winner.nom, winner.prenom);
+                        if (winnerUser) { tx.update(doc(db, COLLECTIONS.users, winnerUser.id), { jetons: increment(table.pot) }); }
+                        outcome = { type: 'victoire', winner: winner.prenom, pot: table.pot };
+                        table.pot = 0;
+                        table.status = 'attente';
+                    }
+
+                    table.players = players;
+                    tx.set(tableRef, table);
+                });
+
+                playSfx('card');
+                if (outcome === 'INSUFFISANT') { showToast("Jetons insuffisants pour relancer.", 'error'); return; }
+                if (outcome === 'relance') { recordLiveBet('Poker Texas', GAME_RULES.pokerRaiseAmount, 'Relance'); showToast(`Vous avez relancé de ${GAME_RULES.pokerRaiseAmount} jetons !`, 'success'); }
+                else if (outcome === 'couche') { showToast("Vous vous êtes couché pour cette manche."); }
+                else if (outcome === 'suivre') { showToast("Vous avez suivi l'action."); }
+                else if (outcome && outcome.type === 'victoire') {
+                    playSfx('win');
+                    showToast(`🏆 ${outcome.winner} remporte la manche et gagne ${outcome.pot} jetons !`, 'success');
+                }
+            } catch (e) { console.error(e); showToast("Erreur lors de l'action.", 'error'); }
+        }
+
+        /* ============================================================
+           SYSTÈME AUDIO (Web Audio API — inchangé, aucune donnée partagée)
+           ============================================================ */
+        let audioCtx = null;
+        let isCasinoAudioPlaying = false;
+        let casinoAmbienceInterval = null;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioCtor = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtor) return;
+                audioCtx = new AudioCtor();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function toggleCasinoAudio() {
+            initAudioContext();
+            isCasinoAudioPlaying = !isCasinoAudioPlaying;
+            const btn = document.getElementById('audio-toggle-btn');
+            const icon = document.getElementById('audio-icon');
+            if (isCasinoAudioPlaying) {
+                btn.innerText = "Couper Musique"; btn.style.borderColor = "var(--success)"; btn.style.color = "var(--success)"; icon.innerText = "🔊";
+                startCasinoAmbience();
+            } else {
+                btn.innerText = "Activer Musique"; btn.style.borderColor = "var(--gold-primary)"; btn.style.color = "var(--gold-primary)"; icon.innerText = "🎵";
+                stopCasinoAmbience();
+            }
+        }
+        function startCasinoAmbience() {
+            if (casinoAmbienceInterval) clearInterval(casinoAmbienceInterval);
+            const chords = [261.63, 329.63, 392.00, 523.25, 440.00, 349.23];
+            playAmbientChord();
+            casinoAmbienceInterval = setInterval(() => { if (isCasinoAudioPlaying) playAmbientChord(chords[Math.floor(Math.random() * chords.length)]); }, 4500);
+        }
+        function stopCasinoAmbience() { if (casinoAmbienceInterval) { clearInterval(casinoAmbienceInterval); casinoAmbienceInterval = null; } }
+        function playAmbientChord(freq = 261.63) {
+            if (!audioCtx || !isCasinoAudioPlaying) return;
+            try {
+                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 1.5);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 4.2);
+            } catch (e) {}
+        }
+        function playSfx(type) {
+            initAudioContext();
+            if (!audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                if (type === 'card') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now); osc.stop(now + 0.09);
+                } else if (type === 'roulette') {
+                    for (let i = 0; i < 12; i++) {
+                        const t = now + (i * 0.06);
+                        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                        o.type = 'sine'; o.frequency.setValueAtTime(800 + (Math.random() * 200), t);
+                        g.gain.setValueAtTime(0.05, t); g.gain.linearRampToValueAtTime(0.001, t + 0.05);
+                        o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.06);
+                    }
+                } else if (type === 'slot') {
+                    osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(350, now + 0.15);
+                    gain.gain.setValueAtTime(0.08, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.16);
+                } else if (type === 'win') {
+                    [523.25, 659.25, 783.99, 1046.50].forEach((noteFreq, index) => {
+                        const t = now + (index * 0.1);
+                        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+                        o.type = 'sine'; o.frequency.setValueAtTime(noteFreq, t);
+                        g.gain.setValueAtTime(0.1, t); g.gain.linearRampToValueAtTime(0.01, t + 0.2);
+                        o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + 0.22);
+                    });
+                } else if (type === 'dice') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
+                    gain.gain.setValueAtTime(0.12, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now); osc.stop(now + 0.13);
+                }
+            } catch (e) {}
+        }
+
+        /* ============================================================
+           VIP
+           ============================================================ */
+        function openVipModal() {
+            if (!currentUser) { showToast("Veuillez vous identifier pour accéder au carré VIP."); openModal('loginModal'); return; }
+            openModal('vipModal');
+        }
+        async function bookVipWithTokens() {
+            closeModal('vipModal');
+            if (!requireDb()) return;
+            if (currentUser.employe || (currentUser.jetons || 0) >= GAME_RULES.vipPriceTokens) {
+                try {
+                    const fields = { isVip: true };
+                    if (!currentUser.employe) { fields.jetons = increment(-GAME_RULES.vipPriceTokens); }
+                    await fbUpdateUser(currentUser.id, fields);
+                    currentUser.isVip = true;
+                    if (!currentUser.employe) currentUser.jetons -= GAME_RULES.vipPriceTokens;
+                    checkAuthUI();
+                    showToast("✨ Réservation VIP confirmée.", 'success');
+                } catch (e) { console.error(e); showToast("Erreur lors de la réservation.", 'error'); }
+            } else {
+                showToast(`❌ Solde insuffisant (${GAME_RULES.vipPriceTokens} jetons requis).`, 'error');
+            }
+        }
+        async function bookVipOnSite() {
+            closeModal('vipModal');
+            if (!requireDb()) return;
+            const exist = vipRequests.find(v => v.nom.toLowerCase() === currentUser.nom.toLowerCase() && v.prenom.toLowerCase() === currentUser.prenom.toLowerCase());
+            if (exist) { showToast("⚠️ Demande déjà en attente.", 'error'); return; }
+            try {
+                await fbAddVipRequest({ nom: currentUser.nom, prenom: currentUser.prenom, montant: GAME_RULES.vipPriceCash, timestamp: new Date().toISOString() });
+                showToast(`📝 Demande enregistrée. Présentez-vous à l'entrée avec ${GAME_RULES.vipPriceCash}.`, 'success');
+            } catch (e) { console.error(e); showToast("Erreur lors de l'enregistrement.", 'error'); }
+        }
+
+        /* ============================================================
+           BLACKJACK
+           ============================================================ */
+        let bjDeck = [], pHand = [], dHand = [], bjBet = 100, bjLocked = false;
+
+        function readBet(inputId, min) {
+            const val = parseInt(document.getElementById(inputId).value, 10);
+            return (!Number.isFinite(val) || val < min) ? null : val;
+        }
+
+        async function applyJetons(delta) {
+            currentUser.jetons = (currentUser.jetons || 0) + delta;
+            document.getElementById('user-points').innerText = currentUser.jetons;
+            if (db) {
+                try { await fbUpdateUser(currentUser.id, { jetons: increment(delta) }); }
+                catch (e) { console.error('Erreur de synchronisation des jetons:', e); showToast("Erreur réseau : solde peut-être désynchronisé.", 'error'); }
+            }
+        }
+
+        async function startBlackjack() {
+            if (bjLocked) return;
+            const bet = readBet('bj-bet', GAME_RULES.minBetDefault);
+            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDefault}.`, 'error'); return; }
+            bjBet = bet;
+            await applyJetons(-bjBet);
+
+            playSfx('card');
+            recordLiveBet('Blackjack', bjBet);
+
+            const suits = ['♠', '♥', '♦', '♣'], values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            bjDeck = [];
+            suits.forEach(suit => values.forEach(val => bjDeck.push({ val, suit })));
+            bjDeck.sort(() => Math.random() - 0.5);
+            pHand = [bjDeck.pop(), bjDeck.pop()];
+            dHand = [bjDeck.pop(), bjDeck.pop()];
+
+            renderBj(false);
+            document.getElementById('bj-start-btn').style.display = 'none';
+            document.getElementById('bj-actions').style.display = 'flex';
+
+            const playerHasBlackjack = calcHand(pHand) === 21;
+            const dealerHasBlackjack = calcHand(dHand) === 21;
+            if (playerHasBlackjack && dealerHasBlackjack) { endBj("Égalité — deux blackjacks. Mise remboursée.", 'push', bjBet); }
+            else if (playerHasBlackjack) { endBj("BLACKJACK ! Payé 3:2", 'win', Math.floor(bjBet * GAME_RULES.blackjackPayout)); }
+        }
+
+        function calcHand(h) {
+            let sum = 0, aces = 0;
+            h.forEach(c => {
+                if (['J', 'Q', 'K'].includes(c.val)) sum += 10;
+                else if (c.val === 'A') { sum += 11; aces++; }
+                else sum += parseInt(c.val, 10);
+            });
+            while (sum > 21 && aces > 0) { sum -= 10; aces--; }
+            return sum;
+        }
+
+        function renderBj(reveal) {
+            document.getElementById('bj-player-cards').innerHTML = pHand.map(c => `<div class="playing-card ${['♥', '♦'].includes(c.suit) ? 'red' : ''}">${c.val}<br><span style="font-size:1.8rem; text-align:center;">${c.suit}</span></div>`).join('');
+            const playerScore = calcHand(pHand);
+            const dealerDisplay = reveal ? calcHand(dHand) : (dHand[0].val + '+?');
+            document.getElementById('bj-dealer-info').innerText = `Banque: ${dealerDisplay} | Vous: ${playerScore}`;
+            if (playerScore > 21 && !bjLocked) endBj("Vous avez sauté ! Perdu.", 'lose', 0);
+        }
+
+        function hitBlackjack() { if (bjLocked) return; playSfx('card'); pHand.push(bjDeck.pop()); renderBj(false); }
+
+        function standBlackjack() {
+            if (bjLocked) return;
+            playSfx('card');
+            let dealerScore = calcHand(dHand);
+            while (dealerScore < 17) { dHand.push(bjDeck.pop()); dealerScore = calcHand(dHand); }
+            const playerScore = calcHand(pHand);
+            renderBj(true);
+            if (dealerScore > 21 || playerScore > dealerScore) endBj("Gagné !", 'win', bjBet * 2);
+            else if (playerScore === dealerScore) endBj("Égalité", 'push', bjBet);
+            else endBj("Banque gagne", 'lose', 0);
+        }
+
+        async function endBj(msg, outcome, rewardAmount) {
+            bjLocked = true;
+            document.getElementById('bj-status').innerText = msg;
+
+            if (outcome === 'win') { await applyJetons(rewardAmount); playSfx('win'); recordCasinoGame('Blackjack', bjBet, true, rewardAmount - bjBet); }
+            else if (outcome === 'push') { await applyJetons(rewardAmount); recordCasinoGame('Blackjack', bjBet, true, 0); }
+            else { recordCasinoGame('Blackjack', bjBet, false, 0); }
+
+            document.getElementById('bj-start-btn').style.display = 'block';
+            document.getElementById('bj-actions').style.display = 'none';
+            bjLocked = false;
+        }
+
+        /* ============================================================
+           MACHINE À SOUS
+           ============================================================ */
+        let slotsLocked = false;
+        async function playSlots() {
+            if (slotsLocked) return;
+            const bet = readBet('slot-bet', GAME_RULES.minBetDefault);
+            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDefault}.`, 'error'); return; }
+            slotsLocked = true;
+            document.getElementById('slot-play-btn').disabled = true;
+            await applyJetons(-bet);
+
+            playSfx('slot');
+            recordLiveBet('Machines à Sous', bet);
+            document.getElementById('slot-status').innerText = "...";
+
+            setTimeout(async () => {
+                const symbols = ['🍒', '🍋', '💎', '7️⃣', '🔔'];
+                const s1 = symbols[Math.floor(Math.random() * symbols.length)];
+                const s2 = symbols[Math.floor(Math.random() * symbols.length)];
+                const s3 = symbols[Math.floor(Math.random() * symbols.length)];
+                document.getElementById('slot-1').innerText = s1;
+                document.getElementById('slot-2').innerText = s2;
+                document.getElementById('slot-3').innerText = s3;
+
+                if (s1 === s2 && s2 === s3) {
+                    const win = bet * GAME_RULES.slotJackpotMultiplier;
+                    await applyJetons(win);
+                    document.getElementById('slot-status').innerText = `JACKPOT ! (x${GAME_RULES.slotJackpotMultiplier})`;
+                    playSfx('win'); recordCasinoGame('Slots', bet, true, win);
+                } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+                    const win = Math.floor(bet * GAME_RULES.slotMinorMultiplier);
+                    await applyJetons(win);
+                    document.getElementById('slot-status').innerText = `Gain mineur (x${GAME_RULES.slotMinorMultiplier})`;
+                    playSfx('win'); recordCasinoGame('Slots', bet, true, win);
+                } else {
+                    document.getElementById('slot-status').innerText = "Perdu";
+                    recordCasinoGame('Slots', bet, false, 0);
+                }
+                slotsLocked = false;
+                document.getElementById('slot-play-btn').disabled = false;
+            }, 400);
+        }
+
+        /* ============================================================
+           ROULETTE
+           ============================================================ */
+        let rouletteLocked = false;
+        async function playRoulette(choice) {
+            if (rouletteLocked) return;
+            const bet = readBet('roulette-bet', GAME_RULES.minBetDefault);
+            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDefault}.`, 'error'); return; }
+            rouletteLocked = true;
+            document.getElementById('roulette-rouge-btn').disabled = true;
+            document.getElementById('roulette-noir-btn').disabled = true;
+            await applyJetons(-bet);
+
+            playSfx('roulette');
+            recordLiveBet('Roulette', bet, `Choix: ${choice}`);
+
+            setTimeout(async () => {
+                const outcomes = ['Rouge', 'Noir', 'Rouge', 'Noir', 'Vert(0)'];
+                const result = outcomes[Math.floor(Math.random() * outcomes.length)];
+                document.getElementById('roulette-wheel').innerText = `🎡 ${result}`;
+                if (result === choice) {
+                    const win = bet * GAME_RULES.rouletteMultiplier;
+                    await applyJetons(win);
+                    document.getElementById('roulette-status').innerText = `Gagné (${result})`;
+                    playSfx('win'); recordCasinoGame('Roulette', bet, true, win);
+                } else {
+                    document.getElementById('roulette-status').innerText = `Perdu (${result})`;
+                    recordCasinoGame('Roulette', bet, false, 0);
+                }
+                rouletteLocked = false;
+                document.getElementById('roulette-rouge-btn').disabled = false;
+                document.getElementById('roulette-noir-btn').disabled = false;
+            }, 500);
+        }
+
+        /* ============================================================
+           JEU DU DÉ
+           ============================================================ */
+        let diceLocked = false;
+        async function playDice() {
+            if (diceLocked) return;
+            const bet = readBet('dice-bet', GAME_RULES.minBetDice);
+            if (bet === null || !currentUser || (currentUser.jetons || 0) < bet) { showToast(`Solde insuffisant ou mise < ${GAME_RULES.minBetDice}.`, 'error'); return; }
+            const choice = parseInt(document.getElementById('dice-choice').value, 10);
+
+            diceLocked = true;
+            document.getElementById('dice-play-btn').disabled = true;
+            await applyJetons(-bet);
+
+            playSfx('dice');
+            recordLiveBet('Jeu du Dé', bet, `Numéro parié: ${choice}`);
+            document.getElementById('dice-result').innerText = "🎲";
+            document.getElementById('dice-status').innerText = "Le dé roule...";
+
+            setTimeout(async () => {
+                const result = Math.floor(Math.random() * 6) + 1;
+                const diceEmojis = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+                document.getElementById('dice-result').innerText = diceEmojis[result];
+
+                if (result === choice) {
+                    const winAmount = bet * GAME_RULES.diceMultiplier;
+                    await applyJetons(winAmount);
+                    document.getElementById('dice-status').innerText = `Gagné ! Le dé a fait ${result}. (+${winAmount})`;
+                    playSfx('win'); recordCasinoGame('Le Dé', bet, true, winAmount);
+                } else {
+                    document.getElementById('dice-status').innerText = `Perdu ! Le dé a fait ${result}.`;
+                    recordCasinoGame('Le Dé', bet, false, 0);
+                }
+                diceLocked = false;
+                document.getElementById('dice-play-btn').disabled = false;
+            }, 500);
+        }
+
+        /* ============================================================
+           EXPOSITION AU SCOPE GLOBAL
+           Une balise script de type module a son propre scope : les fonctions
+           appelées depuis les attributs onclick/onsubmit du HTML doivent
+           être explicitement attachées à window pour rester accessibles.
+           ============================================================ */
+        Object.assign(window, {
+            switchTab, enterClubDancefloor, openModal, closeModal, handleOverlayClick,
+            openVipModal, bookVipWithTokens, bookVipOnSite,
+            openCasinoGame, backToLobby,
+            handleRegister, handleLogin, logout,
+            completeOrder, validateVipPayment, toggleRole, addNewDish, addCasinoPoints,
+            createOrJoinPokerTable, startPokerHand, pokerAction,
+            startBlackjack, hitBlackjack, standBlackjack,
+            playSlots, playRoulette, playDice,
+            toggleCasinoAudio, submitOrder
+        });
+
+        window.addEventListener('online', () => setFirebaseStatus(isFirebaseConfigured ? 'online' : 'offline', isFirebaseConfigured ? 'En ligne' : 'Firebase non configuré'));
+        window.addEventListener('offline', () => setFirebaseStatus('offline', 'Connexion perdue'));
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
