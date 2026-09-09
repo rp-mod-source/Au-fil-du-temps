@@ -298,12 +298,16 @@
                 <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
                     <div class="card">
                         <h2 style="text-align: center; margin-bottom: 20px;">Notre Menu Signature</h2>
+                        <p style="text-align:center; color:var(--text-muted); font-size:0.85rem; margin-bottom:15px;">Cliquez sur « Ajouter » pour constituer votre commande.</p>
                         <div class="menu-list" id="menu-grid"></div>
                     </div>
 
                     <div class="card" style="height: fit-content; border-color: var(--gold-primary);">
-                        <h3 style="text-align: center;">Réserver / Commander</h3>
-                        <form id="order-form" onsubmit="submitOrder(event)" style="margin-top: 15px;">
+                        <h3 style="text-align: center;">Votre Panier</h3>
+                        <div id="cart-list" style="margin: 15px 0; min-height: 40px;">
+                            <p style="color:var(--text-muted); font-size:0.85rem; text-align:center;">Panier vide</p>
+                        </div>
+                        <form id="order-form" onsubmit="submitOrder(event)" style="margin-top: 10px;">
                             <div class="form-group">
                                 <label id="order-identity-label">Identité (RP)</label>
                                 <div style="display:flex; gap:10px;">
@@ -312,14 +316,6 @@
                                     <label for="order-nom" class="sr-only">Nom</label>
                                     <input type="text" id="order-nom" required placeholder="Nom" aria-labelledby="order-identity-label" autocomplete="off">
                                 </div>
-                            </div>
-                            <div class="form-group">
-                                <label for="order-plat">Choix du plat</label>
-                                <select id="order-plat" required></select>
-                            </div>
-                            <div class="form-group">
-                                <label for="order-quantite">Quantité</label>
-                                <input type="number" id="order-quantite" value="1" min="1" max="20" required>
                             </div>
                             <div class="form-group">
                                 <label for="order-type">Lieu de consommation</label>
@@ -332,14 +328,14 @@
                                 <label for="order-adresse">Adresse de livraison</label>
                                 <input type="text" id="order-adresse" placeholder="Indiquez votre adresse complète">
                             </div>
-                            <button type="submit" class="btn" style="width: 100%;">Transmettre au Chef</button>
+                            <button type="submit" class="btn" style="width: 100%;" id="order-submit-btn">Transmettre au Chef</button>
+                            <button type="button" class="btn btn-outline" style="width: 100%; margin-top:8px;" onclick="clearCart()">Vider le panier</button>
                         </form>
                     </div>
                 </div>
             </div>
         </section>
-
-        <!-- SECTION CLUB -->
+                <!-- SECTION CLUB -->
         <section id="club" class="section">
             <div class="hero" style="background-image: url('https://images.unsplash.com/photo-1566737236500-c8ac43014a67?auto=format&fit=crop&w=1920&q=80');">
                 <div class="hero-content">
@@ -602,26 +598,31 @@
                     <div id="admin-users-list" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"></div>
                 </div>
 
-                <div class="grid" style="margin-top: 20px;">
-                    <div class="card">
-                        <h3>Outil : Mise à jour Menu</h3>
-                        <form onsubmit="addNewDish(event)">
-                            <div class="form-group">
-                                <label for="new-dish-name" class="sr-only">Nom du plat</label>
-                                <input type="text" id="new-dish-name" required placeholder="Nom du plat">
-                            </div>
-                            <div class="form-group">
-                                <label for="new-dish-desc" class="sr-only">Description</label>
-                                <input type="text" id="new-dish-desc" required placeholder="Description détaillée">
-                            </div>
-                            <div class="form-group">
-                                <label for="new-dish-price" class="sr-only">Prix</label>
-                                <input type="text" id="new-dish-price" required placeholder="Prix (ex: 45 $)">
-                            </div>
-                            <button type="submit" class="btn" style="width: 100%;">Ajouter à la carte</button>
-                        </form>
-                    </div>
+                <div class="card" style="margin-top: 20px; border-top: 4px solid var(--gold-primary);">
+                    <h3>Gestion de la Carte (Menu)</h3>
+                    <div id="admin-menu-list" style="max-height: 280px; overflow-y: auto; margin: 12px 0;"></div>
+                    <form id="dish-form" onsubmit="saveDish(event)" style="border-top:1px solid var(--glass-border); padding-top:15px;">
+                        <input type="hidden" id="edit-dish-id" value="">
+                        <div class="form-group">
+                            <label for="new-dish-name">Nom du plat</label>
+                            <input type="text" id="new-dish-name" required placeholder="Nom du plat">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-dish-desc">Description</label>
+                            <input type="text" id="new-dish-desc" required placeholder="Description détaillée">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-dish-price">Prix</label>
+                            <input type="text" id="new-dish-price" required placeholder="Prix (ex: 45 $)">
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button type="submit" class="btn" style="flex:1;" id="dish-form-submit">Ajouter à la carte</button>
+                            <button type="button" class="btn btn-outline" style="display:none;" id="dish-form-cancel" onclick="cancelEditDish()">Annuler</button>
+                        </div>
+                    </form>
+                </div>
 
+                <div class="grid" style="margin-top: 20px;">
                     <div class="card">
                         <h3>Outil : Créditer Jetons</h3>
                         <form onsubmit="addCasinoPoints(event)">
@@ -695,7 +696,7 @@
                 </div>
                 <div class="form-group">
                     <label for="reg-pass" class="sr-only">Mot de passe</label>
-                    <input type="password" id="reg-pass" required placeholder="Mot de passe" autocomplete="off">
+                    <input type="text" id="reg-pass" required placeholder="Mot de passe" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label for="reg-code" class="sr-only">Code Employé</label>
@@ -759,6 +760,7 @@
         // Webhooks Discord
         const DISCORD_WEBHOOK_CUISINE = "https://discord.com/api/webhooks/1546913548305965067/HdMZrSK0fYElQ8vRldcxkSkuh2qhoRG0W1jeIdnaK8qXqaRj3VAWfMwDjgGxL2ivxBfx";
         const DISCORD_WEBHOOK_BIGWIN = "https://discord.com/api/webhooks/1546904716850626683/yb1upTPhJ8LPUF3U2_dgRxXMkb5WVJUkC11PtwSzyk-Kd11bdLBEyszXOW0AC4ufBB2D";
+        const DISCORD_WEBHOOK_VIP = "https://discord.com/api/webhooks/1547306817967890453/xwpZXqSLx2hAeTbq0Fiae3d2HaxOQY5wQi_0SaPMyNePtDuYKuS80f4gRzntqwQ4tdOc";
 
         const GAME_RULES = {
             minBetDefault: 100,
@@ -774,14 +776,13 @@
             pokerMaxPlayers: 8,
             pokerRaiseAmount: 100,
             pokerBlind: 50,
-            welcomeJetons: 2000,
+            welcomeJetons: 350,
             liveBetsCap: 20,
             historyCap: 30
         };
 
-        let currentUserId = null; // Stocke l'ID unique de l'utilisateur connecté sur CET appareil
-
-        /* ============================================================
+        let currentUserId = null;
+                /* ============================================================
            UTILITAIRES DISCORD & WEBHOOKS
            ============================================================ */
         async function sendDiscordWebhook(webhookUrl, content) {
@@ -795,6 +796,11 @@
             } catch (e) {
                 console.warn("Erreur lors de l'envoi du webhook Discord :", e);
             }
+        }
+
+        async function notifyVipDiscord(prenom, nom) {
+            const msg = `⭐ **VIP Bot** — Un grand merci d'avoir opté pour l'expérience VIP. C'est un réel plaisir de vous compter parmi nous, nous allons tout faire pour que ce moment soit inoubliable !\n- **${prenom} ${nom}** a rejoint le statut VIP.`;
+            await sendDiscordWebhook(DISCORD_WEBHOOK_VIP, msg);
         }
 
         /* ============================================================
@@ -856,6 +862,7 @@
         let leaderboard = [];
         let pokerTable = { players: [], pot: 0, status: 'attente' };
         let currentUser = null;
+        let cart = [];
 
         let bjGameState = { playerCards: [], dealerCards: [], bet: 0, inGame: false };
 
@@ -883,11 +890,14 @@
         }
         async function fbCreateUser(slug, data) { await setDoc(doc(db, COLLECTIONS.users, slug), data); }
         async function fbUpdateUser(slug, fields) { await updateDoc(doc(db, COLLECTIONS.users, slug), fields); }
+        async function fbDeleteUser(slug) { await deleteDoc(doc(db, COLLECTIONS.users, slug)); }
         async function fbAddOrder(data) { await addDoc(collection(db, COLLECTIONS.orders), data); }
         async function fbDeleteOrder(id) { await deleteDoc(doc(db, COLLECTIONS.orders, id)); }
         async function fbAddVipRequest(data) { await addDoc(collection(db, COLLECTIONS.vipRequests), data); }
         async function fbDeleteVipRequest(id) { await deleteDoc(doc(db, COLLECTIONS.vipRequests, id)); }
         async function fbAddMenuItem(data) { await addDoc(collection(db, COLLECTIONS.menu), data); }
+        async function fbUpdateMenuItem(id, fields) { await updateDoc(doc(db, COLLECTIONS.menu, id), fields); }
+        async function fbDeleteMenuItem(id) { await deleteDoc(doc(db, COLLECTIONS.menu, id)); }
 
         async function fbAddHistoryAndTrim(entry) {
             await addDoc(collection(db, COLLECTIONS.history), entry);
@@ -927,6 +937,7 @@
             onSnapshot(collection(db, COLLECTIONS.menu), snap => {
                 menuItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderMenu();
+                renderAdminMenu();
             }, err => console.error('Écoute menu:', err));
 
             onSnapshot(query(collection(db, COLLECTIONS.orders), orderBy('timestamp', 'asc')), snap => {
@@ -1005,9 +1016,6 @@
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         function handleOverlayClick(event, id) { if (event.target && event.target.id === id) closeModal(id); }
 
-        /* ============================================================
-           GESTION ADRESSE COMMANDE RESTAURANT
-           ============================================================ */
         function toggleAddressField() {
             const type = document.getElementById('order-type').value;
             const addressGroup = document.getElementById('address-group');
@@ -1022,9 +1030,6 @@
             }
         }
 
-        /* ============================================================
-           VIP
-           ============================================================ */
         function openVipModal() {
             if (!currentUser) { showToast("Veuillez vous identifier.", 'error'); openModal('loginModal'); return; }
             openModal('vipModal');
@@ -1039,6 +1044,7 @@
             }
             try {
                 await fbUpdateUser(currentUser.id, { jetons: increment(-cost), isVip: true });
+                await notifyVipDiscord(currentUser.prenom, currentUser.nom);
                 closeModal('vipModal');
                 playSfx('win');
                 showToast("Félicitations ! Vous êtes désormais Membre VIP.", 'success');
@@ -1063,8 +1069,7 @@
                 showToast("Erreur lors de la réservation VIP.", 'error');
             }
         }
-
-        /* ============================================================
+                /* ============================================================
            AUTHENTIFICATION
            ============================================================ */
         async function handleRegister(e) {
@@ -1099,7 +1104,7 @@
                 e.target.reset();
                 closeModal('registerModal');
                 refreshCurrentUser();
-                showToast("Compte créé avec succès ! 2000 jetons offerts.", 'success');
+                showToast("Compte créé avec succès ! 350 jetons offerts.", 'success');
             } catch (err) {
                 showToast("Erreur lors de l'inscription.", 'error');
             } finally {
@@ -1167,21 +1172,80 @@
         }
 
         /* ============================================================
-           MENU & COMMANDES RESTAURANT (AVEC DISCORD)
+           MENU & COMMANDES RESTAURANT (PANIER + DISCORD)
            ============================================================ */
         function renderMenu() {
             const grid = document.getElementById('menu-grid');
-            const select = document.getElementById('order-plat');
-            if(!grid || !select) return;
-            grid.innerHTML = '';
-            select.innerHTML = '';
-            menuItems.forEach(item => {
-                grid.innerHTML += `<div class="menu-item"><div class="menu-item-info"><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.desc)}</p></div><div class="menu-price">${escapeHtml(item.price)}</div></div>`;
-                const opt = document.createElement('option');
-                opt.value = item.id;
-                opt.textContent = `${item.name} (${item.price})`;
-                select.appendChild(opt);
-            });
+            if (!grid) return;
+            if (menuItems.length === 0) {
+                grid.innerHTML = `<p style="color:var(--text-muted); text-align:center;">Aucun plat pour le moment.</p>`;
+                return;
+            }
+            grid.innerHTML = menuItems.map(item => `
+                <div class="menu-item">
+                    <div class="menu-item-info">
+                        <h4>${escapeHtml(item.name)}</h4>
+                        <p>${escapeHtml(item.desc)}</p>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                        <div class="menu-price">${escapeHtml(item.price)}</div>
+                        <button type="button" class="btn" style="padding:5px 12px; font-size:0.7rem;" onclick="addToCart('${item.id}')">+ Ajouter</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function addToCart(dishId) {
+            const dish = findDishById(dishId);
+            if (!dish) return;
+            const existing = cart.find(c => c.id === dishId);
+            if (existing) {
+                existing.qty = Math.min(20, existing.qty + 1);
+            } else {
+                cart.push({ id: dish.id, name: dish.name, price: dish.price, qty: 1 });
+            }
+            renderCart();
+            showToast(`${dish.name} ajouté au panier`, 'success');
+        }
+
+        function updateCartQty(dishId, delta) {
+            const item = cart.find(c => c.id === dishId);
+            if (!item) return;
+            item.qty += delta;
+            if (item.qty <= 0) cart = cart.filter(c => c.id !== dishId);
+            else if (item.qty > 20) item.qty = 20;
+            renderCart();
+        }
+
+        function removeFromCart(dishId) {
+            cart = cart.filter(c => c.id !== dishId);
+            renderCart();
+        }
+
+        function clearCart() {
+            cart = [];
+            renderCart();
+        }
+
+        function renderCart() {
+            const list = document.getElementById('cart-list');
+            if (!list) return;
+            if (cart.length === 0) {
+                list.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; text-align:center;">Panier vide</p>`;
+                return;
+            }
+            list.innerHTML = cart.map(c => `
+                <div class="admin-row" style="border-left-color: var(--gold-primary); margin-bottom:6px;">
+                    <div style="flex:1;">
+                        <strong style="color:var(--gold-light);">${escapeHtml(c.name)}</strong>
+                        <span style="font-size:0.75rem; color:var(--text-muted);"> — ${escapeHtml(c.price)}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" class="btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="updateCartQty('${c.id}', -1)">−</button>
+                        <span style="min-width:20px; text-align:center; font-weight:600;">${c.qty}</span>
+                        <button type="button" class="btn-outline" style="padding:2px 8px; font-size:0.75rem;" onclick="updateCartQty('${c.id}', 1)">+</button>
+                        <button type="button" class="btn-danger" style="padding:2px 8px; font-size:0.7rem;" onclick="removeFromCart('${c.id}')">✕</button>
+                    </div>
+                </div>`).join('');
         }
 
         async function submitOrder(e) {
@@ -1189,25 +1253,24 @@
             if (!requireDb()) return;
             const nom = document.getElementById('order-nom').value.trim();
             const prenom = document.getElementById('order-prenom').value.trim();
-            const dishId = document.getElementById('order-plat').value;
-            const quantite = parseInt(document.getElementById('order-quantite').value, 10) || 1;
             const typeLieu = document.getElementById('order-type').value;
             const adresse = document.getElementById('order-adresse').value.trim();
-            const dish = findDishById(dishId);
 
-            if (!nom || !prenom || !dish) { showToast("Informations incomplètes.", 'error'); return; }
+            if (!nom || !prenom) { showToast("Indiquez prénom et nom.", 'error'); return; }
+            if (cart.length === 0) { showToast("Votre panier est vide.", 'error'); return; }
+            if (typeLieu === 'À domicile' && !adresse) { showToast("Adresse de livraison requise.", 'error'); return; }
 
-            let supplement = 0;
-            if (typeLieu === 'À domicile') {
-                supplement = 1000;
-            }
+            const supplement = typeLieu === 'À domicile' ? 1000 : 0;
+            const platsSummary = cart.map(c => `${c.name} x${c.qty}`).join(', ');
+            const platsDetail = cart.map(c => ({ name: c.name, price: c.price, quantite: c.qty }));
 
             try {
                 const orderData = {
                     userId: currentUser ? currentUser.id : null,
                     nom, prenom,
-                    plat: dish.name,
-                    quantite,
+                    plat: platsSummary,
+                    plats: platsDetail,
+                    quantite: cart.reduce((s, c) => s + c.qty, 0),
                     typeLieu,
                     adresse: typeLieu === 'À domicile' ? adresse : 'Sur place',
                     supplement,
@@ -1217,11 +1280,12 @@
 
                 await fbAddOrder(orderData);
 
-                // Envoi vers le Webhook Discord Cuisine
-                const discordMsg = `🍽️ **Nouvelle Commande Restaurant** !\n- **Client** : ${prenom} ${nom}\n- **Plat** : ${dish.name} (x${quantite})\n- **Type** : ${typeLieu}${typeLieu === 'À domicile' ? `\n- **Adresse** : ${adresse}\n- **Supplément** : 1000 €` : ''}`;
+                const lines = cart.map(c => `  • ${c.name} × ${c.qty} (${c.price})`).join('\n');
+                const discordMsg = `🍽️ **Nouvelle Commande Restaurant** !\n- **Client** : ${prenom} ${nom}\n- **Plats** :\n${lines}\n- **Type** : ${typeLieu}${typeLieu === 'À domicile' ? `\n- **Adresse** : ${adresse}\n- **Supplément** : 1000 €` : ''}`;
                 await sendDiscordWebhook(DISCORD_WEBHOOK_CUISINE, discordMsg);
 
-                showToast("Votre commande a été transmise au chef et envoyée sur Discord !", 'success');
+                showToast("Commande transmise au chef et sur Discord !", 'success');
+                clearCart();
                 e.target.reset();
                 toggleAddressField();
                 if (currentUser) {
@@ -1244,7 +1308,7 @@
                 <div class="admin-row">
                     <div>
                         <strong style="color:var(--gold-light);">${escapeHtml(ord.prenom)} ${escapeHtml(ord.nom)}</strong><br>
-                        <span style="font-size:0.85rem;">Plat: ${escapeHtml(ord.plat)} (x${ord.quantite || 1})</span><br>
+                        <span style="font-size:0.85rem;">${escapeHtml(ord.plat)}</span><br>
                         <span style="font-size:0.75rem; color:var(--gold-primary);">Lieu: ${escapeHtml(ord.typeLieu)} ${ord.typeLieu === 'À domicile' ? `(${escapeHtml(ord.adresse)})` : ''}</span>
                     </div>
                     <button type="button" class="btn" style="padding:4px 10px; font-size:0.7rem;" onclick="completeOrder('${ord.id}')">Servir</button>
@@ -1252,6 +1316,78 @@
         }
         async function completeOrder(id) {
             try { await fbDeleteOrder(id); } catch (e) { showToast("Erreur.", 'error'); }
+        }
+
+        function renderAdminMenu() {
+            const container = document.getElementById('admin-menu-list');
+            if (!container) return;
+            if (menuItems.length === 0) {
+                container.innerHTML = `<p style="color:var(--text-muted);">Aucun plat. Ajoutez-en ci-dessous.</p>`;
+                return;
+            }
+            container.innerHTML = menuItems.map(item => `
+                <div class="admin-row">
+                    <div style="flex:1;">
+                        <strong style="color:var(--gold-light);">${escapeHtml(item.name)}</strong>
+                        <span style="color:var(--text-muted); font-size:0.8rem;"> — ${escapeHtml(item.price)}</span><br>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(item.desc)}</span>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button type="button" class="btn-outline" style="padding:4px 8px; font-size:0.7rem;" onclick="startEditDish('${item.id}')">Modifier</button>
+                        <button type="button" class="btn-danger" style="padding:4px 8px; font-size:0.7rem;" onclick="deleteDish('${item.id}')">Suppr.</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function startEditDish(id) {
+            const item = findDishById(id);
+            if (!item) return;
+            document.getElementById('edit-dish-id').value = id;
+            document.getElementById('new-dish-name').value = item.name || '';
+            document.getElementById('new-dish-desc').value = item.desc || '';
+            document.getElementById('new-dish-price').value = item.price || '';
+            document.getElementById('dish-form-submit').textContent = 'Enregistrer les modifications';
+            document.getElementById('dish-form-cancel').style.display = 'inline-block';
+            document.getElementById('new-dish-name').focus();
+        }
+
+        function cancelEditDish() {
+            document.getElementById('edit-dish-id').value = '';
+            document.getElementById('dish-form').reset();
+            document.getElementById('dish-form-submit').textContent = 'Ajouter à la carte';
+            document.getElementById('dish-form-cancel').style.display = 'none';
+        }
+
+        async function saveDish(e) {
+            e.preventDefault();
+            if (!requireDb()) return;
+            const id = document.getElementById('edit-dish-id').value;
+            const name = document.getElementById('new-dish-name').value.trim();
+            const desc = document.getElementById('new-dish-desc').value.trim();
+            const price = document.getElementById('new-dish-price').value.trim();
+            if (!name || !desc || !price) return;
+            try {
+                if (id) {
+                    await fbUpdateMenuItem(id, { name, desc, price });
+                    showToast("Plat modifié.", 'success');
+                } else {
+                    await fbAddMenuItem({ name, desc, price });
+                    showToast("Plat ajouté à la carte.", 'success');
+                }
+                cancelEditDish();
+            } catch (err) { showToast("Erreur menu.", 'error'); }
+        }
+
+        async function deleteDish(id) {
+            if (!requireDb()) return;
+            const item = findDishById(id);
+            if (!item) return;
+            if (!confirm(`Supprimer « ${item.name} » de la carte ?`)) return;
+            try {
+                await fbDeleteMenuItem(id);
+                if (document.getElementById('edit-dish-id').value === id) cancelEditDish();
+                showToast("Plat supprimé.", 'success');
+            } catch (e) { showToast("Erreur.", 'error'); }
         }
 
         function renderAdminVipRequests() {
@@ -1270,7 +1406,10 @@
             try {
                 await fbDeleteVipRequest(id);
                 const target = findUserByNomPrenom(req.nom, req.prenom);
-                if (target) { await fbUpdateUser(target.id, { isVip: true }); }
+                if (target) {
+                    await fbUpdateUser(target.id, { isVip: true });
+                    await notifyVipDiscord(req.prenom, req.nom);
+                }
                 showToast("Paiement validé. Statut VIP accordé.", 'success');
             } catch (e) { showToast("Erreur.", 'error'); }
         }
@@ -1287,9 +1426,10 @@
                     </div>
                     <div style="text-align: right;">
                         <span style="font-family: var(--font-heading), serif; color: var(--gold-light); font-size: 1.1rem;">${u.jetons || 0} pts</span>
-                        <div style="display:flex; gap:5px; margin-top:4px;">
+                        <div style="display:flex; gap:5px; margin-top:4px; flex-wrap:wrap; justify-content:flex-end;">
                             <button type="button" class="btn-outline" style="font-size:0.65rem; padding:3px 6px; cursor:pointer;" onclick="toggleRole('${u.id}', 'employe')">${u.employe ? '- Staff' : '+ Staff'}</button>
                             <button type="button" class="btn-outline" style="font-size:0.65rem; padding:3px 6px; cursor:pointer;" onclick="toggleRole('${u.id}', 'isVip')">${u.isVip ? '- VIP' : '+ VIP'}</button>
+                            <button type="button" class="btn-danger" style="font-size:0.65rem; padding:3px 6px; cursor:pointer;" onclick="deleteUser('${u.id}')">Supprimer</button>
                         </div>
                     </div>
                 </div>`).join('');
@@ -1299,22 +1439,24 @@
             const target = findUserById(id);
             if (!target) return;
             try {
-                await fbUpdateUser(id, { [roleProp]: !target[roleProp] });
+                const newVal = !target[roleProp];
+                await fbUpdateUser(id, { [roleProp]: newVal });
+                if (roleProp === 'isVip' && newVal) {
+                    await notifyVipDiscord(target.prenom, target.nom);
+                }
             } catch (e) { showToast("Erreur.", 'error'); }
         }
 
-        async function addNewDish(e) {
-            e.preventDefault();
+        async function deleteUser(id) {
             if (!requireDb()) return;
-            const name = document.getElementById('new-dish-name').value.trim();
-            const desc = document.getElementById('new-dish-desc').value.trim();
-            const price = document.getElementById('new-dish-price').value.trim();
-            if (!name || !desc || !price) return;
+            const target = findUserById(id);
+            if (!target) return;
+            if (!confirm(`Supprimer définitivement ${target.prenom} ${target.nom} ?`)) return;
             try {
-                await fbAddMenuItem({ name, desc, price });
-                e.target.reset();
-                showToast("Menu mis à jour !", 'success');
-            } catch (err) { showToast("Erreur.", 'error'); }
+                await fbDeleteUser(id);
+                if (currentUserId === id) logout();
+                showToast("Utilisateur supprimé.", 'success');
+            } catch (e) { showToast("Erreur lors de la suppression.", 'error'); }
         }
 
         async function addCasinoPoints(e) {
@@ -1334,7 +1476,7 @@
         }
 
         /* ============================================================
-           CLASSEMENT & HISTORIQUE CASINO
+           CLASSEMENT & HISTORIQUE CASINO + JEUX + POKER + AUDIO
            ============================================================ */
         function renderLeaderboard() {
             const container = document.getElementById('leaderboard-list');
@@ -1384,8 +1526,6 @@
                     game, bet, win, diff,
                     timestamp: new Date().toISOString()
                 });
-
-                // Si le gain net est supérieur à 1000 jetons, envoi sur le second webhook Discord
                 if (win && diff > 1000) {
                     const bigWinMsg = `🎰 **GROS GAIN AU CASINO !** 🎰\n- **Joueur** : ${currentUser.prenom} ${currentUser.nom}\n- **Jeu** : ${game}\n- **Gain net** : +${diff} jetons (Mise : ${bet})`;
                     await sendDiscordWebhook(DISCORD_WEBHOOK_BIGWIN, bigWinMsg);
@@ -1404,9 +1544,6 @@
                 </div>`).join('');
         }
 
-        /* ============================================================
-           JEUX DE CASINO SOLO
-           ============================================================ */
         function generateCard() {
             const suits = ['♠', '♥', '♦', '♣'];
             const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -1414,20 +1551,17 @@
             const val = values[Math.floor(Math.random() * values.length)];
             return { suit, val, isRed: suit === '♥' || suit === '♦' };
         }
-
         function getCardScore(card) {
             if (['J', 'Q', 'K'].includes(card.val)) return 10;
             if (card.val === 'A') return 11;
             return parseInt(card.val, 10);
         }
-
         function calculateHandValue(cards) {
             let total = cards.reduce((acc, c) => acc + getCardScore(c), 0);
             let aces = cards.filter(c => c.val === 'A').length;
             while (total > 21 && aces > 0) { total -= 10; aces--; }
             return total;
         }
-
         function renderCardHTML(card) {
             return `<div class="playing-card ${card.isRed ? 'red' : ''}"><div>${card.val}</div><div style="text-align:center;">${card.suit}</div><div style="text-align:right;">${card.val}</div></div>`;
         }
@@ -1435,7 +1569,6 @@
         async function startBlackjack() {
             if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
-
             const bet = parseInt(document.getElementById('bj-bet').value, 10);
             if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast(`Mise minimum : ${GAME_RULES.minBetDefault} jetons.`, 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
@@ -1451,18 +1584,14 @@
             document.getElementById('bj-start-btn').style.display = 'none';
             document.getElementById('bj-actions').style.display = 'flex';
             document.getElementById('bj-status').innerText = 'En cours...';
-
             updateBlackjackUI();
             playSfx('card');
-
             if (calculateHandValue(bjGameState.playerCards) === 21) { endBlackjack(true, true); }
         }
-
         function updateBlackjackUI() {
             document.getElementById('bj-player-cards').innerHTML = bjGameState.playerCards.map(c => renderCardHTML(c)).join('');
             document.getElementById('bj-dealer-info').innerText = `Banque : ${calculateHandValue(bjGameState.dealerCards)} pts`;
         }
-
         async function hitBlackjack() {
             if (!bjGameState.inGame) return;
             playSfx('card');
@@ -1471,77 +1600,54 @@
             if (calculateHandValue(bjGameState.playerCards) > 21) { endBlackjack(false); }
             else if (calculateHandValue(bjGameState.playerCards) === 21) { standBlackjack(); }
         }
-
         async function standBlackjack() {
             if (!bjGameState.inGame) return;
             while (calculateHandValue(bjGameState.dealerCards) < 17) { bjGameState.dealerCards.push(generateCard()); }
             updateBlackjackUI();
-
             const pScore = calculateHandValue(bjGameState.playerCards);
             const dScore = calculateHandValue(bjGameState.dealerCards);
-
             if (dScore > 21 || pScore > dScore) { endBlackjack(true); }
             else if (pScore === dScore) { endBlackjack('push'); }
             else { endBlackjack(false); }
         }
-
         async function endBlackjack(isWin, isNatural = false) {
             bjGameState.inGame = false;
             document.getElementById('bj-start-btn').style.display = 'block';
             document.getElementById('bj-actions').style.display = 'none';
-
             let gain = 0;
             if (isWin === 'push') { gain = bjGameState.bet; }
             else if (isWin) {
                 gain = isNatural ? Math.floor(bjGameState.bet * GAME_RULES.blackjackPayout) : bjGameState.bet * 2;
                 playSfx('win');
             } else { playSfx('lose'); }
-
             document.getElementById('bj-status').innerText = isWin ? `Victoire ! +${gain} jetons` : 'Perdu.';
-
-            if (gain > 0) {
-                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-            }
+            if (gain > 0) await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
             recordCasinoGame('Blackjack', bjGameState.bet, isWin === true || isNatural, isWin === 'push' ? 0 : (isWin ? gain - bjGameState.bet : bjGameState.bet));
         }
 
         async function playSlots() {
             if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
-
             const bet = parseInt(document.getElementById('slot-bet').value, 10);
             if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast("Mise invalide.", 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
-
             const btn = document.getElementById('slot-play-btn');
             btn.disabled = true;
-
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
             recordLiveBet('Machine à Sous', bet);
-
             const syms = ['🍒', '🍋', '🔔', '💎', '7️⃣'];
             const s1 = syms[Math.floor(Math.random() * syms.length)];
             const s2 = syms[Math.floor(Math.random() * syms.length)];
             const s3 = syms[Math.floor(Math.random() * syms.length)];
-
             document.getElementById('slot-1').innerText = s1;
             document.getElementById('slot-2').innerText = s2;
             document.getElementById('slot-3').innerText = s3;
-
             let gain = 0;
-            if (s1 === s2 && s2 === s3) {
-                gain = Math.floor(bet * GAME_RULES.slotJackpotMultiplier);
-                playSfx('win');
-            } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-                gain = Math.floor(bet * GAME_RULES.slotMinorMultiplier);
-                playSfx('win');
-            } else { playSfx('lose'); }
-
+            if (s1 === s2 && s2 === s3) { gain = Math.floor(bet * GAME_RULES.slotJackpotMultiplier); playSfx('win'); }
+            else if (s1 === s2 || s2 === s3 || s1 === s3) { gain = Math.floor(bet * GAME_RULES.slotMinorMultiplier); playSfx('win'); }
+            else { playSfx('lose'); }
             document.getElementById('slot-status').innerText = gain > 0 ? `Gagné ! +${gain} jetons` : "Perdu.";
-
-            if (gain > 0) {
-                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-            }
+            if (gain > 0) await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
             recordCasinoGame('Machine à sous', bet, gain > 0, gain > 0 ? gain - bet : bet);
             btn.disabled = false;
         }
@@ -1549,48 +1655,34 @@
         async function playRoulette(choice) {
             if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
-
             const bet = parseInt(document.getElementById('roulette-bet').value, 10);
             if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast("Mise invalide.", 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
-
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
             recordLiveBet('Roulette', bet, `Pari: ${choice}`);
-
             const winningColor = Math.random() < 0.5 ? 'Rouge' : 'Noir';
             const isWin = choice === winningColor;
             const gain = isWin ? bet * GAME_RULES.rouletteMultiplier : 0;
-
             document.getElementById('roulette-status').innerText = `Sortie : ${winningColor}. ${isWin ? `Gagné ! +${gain}` : 'Perdu.'}`;
-
-            if (isWin) {
-                playSfx('win');
-                await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-            } else { playSfx('lose'); }
-
+            if (isWin) { playSfx('win'); await fbUpdateUser(currentUser.id, { jetons: increment(gain) }); }
+            else { playSfx('lose'); }
             recordCasinoGame('Roulette', bet, isWin, isWin ? gain - bet : bet);
         }
 
         async function playDice() {
             if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
-
             const bet = parseInt(document.getElementById('dice-bet').value, 10);
             const choice = parseInt(document.getElementById('dice-choice').value, 10);
-
             if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDice) { showToast("Mise invalide.", 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
-
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
             recordLiveBet('Jeu du Dé', bet, `Dé: ${choice}`);
-
             const diceRoll = Math.floor(Math.random() * 6) + 1;
             const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
             document.getElementById('dice-result').innerText = emojis[diceRoll - 1];
-
             const isWin = choice === diceRoll;
             const gain = isWin ? bet * GAME_RULES.diceMultiplier : 0;
-
             if (isWin) {
                 playSfx('win');
                 document.getElementById('dice-status').innerText = `Gagné ! +${gain} jetons`;
@@ -1599,13 +1691,9 @@
                 playSfx('lose');
                 document.getElementById('dice-status').innerText = `Sortie : ${diceRoll}. Perdu.`;
             }
-
             recordCasinoGame('Jeu du Dé', bet, isWin, isWin ? gain - bet : bet);
         }
 
-        /* ============================================================
-           POKER MULTIJOUEUR
-           ============================================================ */
         function openCasinoGame(gameName) {
             document.querySelectorAll('.casino-view').forEach(v => v.style.display = 'none');
             document.getElementById(`game-${gameName}`).style.display = 'block';
@@ -1619,24 +1707,19 @@
         async function createOrJoinPokerTable() {
             if (!currentUser) { showToast("Connectez-vous.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
-
             const buyin = parseInt(document.getElementById('poker-buyin').value, 10) || 200;
             const tableRef = doc(db, ...POKER_TABLE_PATH);
-
             try {
                 await runTransaction(db, async (tx) => {
                     const snap = await tx.get(tableRef);
                     const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
-
                     if (table.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom)) return;
                     if (table.players.length >= GAME_RULES.pokerMaxPlayers) throw new Error('TABLE_PLEINE');
                     if (!currentUser.jetons || currentUser.jetons < buyin) throw new Error('SOLDE_INSUFFISANT');
-
                     tx.update(doc(db, COLLECTIONS.users, currentUser.id), { jetons: increment(-buyin) });
                     table.players.push({ nom: currentUser.nom, prenom: currentUser.prenom, stack: buyin, folded: false });
                     tx.set(tableRef, table);
                 });
-
                 document.getElementById('poker-setup').style.display = 'none';
                 document.getElementById('poker-board').style.display = 'block';
                 playSfx('card');
@@ -1651,22 +1734,18 @@
             const countElem = document.getElementById('poker-players-count');
             const potElem = document.getElementById('poker-pot');
             if (!countElem || !potElem) return;
-
             countElem.innerText = pokerTable.players.length;
             potElem.innerText = pokerTable.pot + " Jetons";
-
             document.getElementById('poker-seats-list').innerHTML = pokerTable.players.map(p => `
                 <div style="background: rgba(255,255,255,0.05); border: 1px solid ${p.folded ? 'var(--danger)' : 'var(--glass-border)'}; padding: 8px 12px; border-radius: 6px; text-align:center; min-width: 100px;">
                     <div style="font-size:0.75rem; color:var(--gold-light);">${escapeHtml(p.prenom)} ${escapeHtml(p.nom)}</div>
                     <div style="font-size:0.9rem; font-weight:bold; color:#fff;">${p.stack} pts</div>
                 </div>`).join('');
-
             const isSeated = currentUser && pokerTable.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
             if (isSeated) {
                 document.getElementById('poker-setup').style.display = 'none';
                 document.getElementById('poker-board').style.display = 'block';
             }
-
             if (pokerTable.players.length >= GAME_RULES.pokerMinPlayers && pokerTable.status === 'attente') {
                 document.getElementById('poker-start-btn').style.display = 'block';
                 document.getElementById('poker-actions').style.display = 'none';
@@ -1699,14 +1778,12 @@
                     const table = (await tx.get(tableRef)).data();
                     const player = table.players.find(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
                     if (!player) return;
-
                     if (actionType === 'relancer') {
                         player.stack -= GAME_RULES.pokerRaiseAmount;
                         table.pot += GAME_RULES.pokerRaiseAmount;
                     } else if (actionType === 'passer') {
                         player.folded = true;
                     }
-
                     const active = table.players.filter(p => !p.folded);
                     if (active.length === 1) {
                         const winner = active[0];
@@ -1722,9 +1799,6 @@
             } catch (e) { showToast("Erreur.", 'error'); }
         }
 
-        /* ============================================================
-           AUDIO
-           ============================================================ */
         let audioCtx = null, isCasinoAudioPlaying = false, casinoAmbienceInterval = null;
         function initAudioContext() {
             if (!audioCtx) {
@@ -1790,7 +1864,7 @@
         window.completeOrder = completeOrder;
         window.validateVipPayment = validateVipPayment;
         window.toggleRole = toggleRole;
-        window.addNewDish = addNewDish;
+        window.deleteUser = deleteUser;
         window.addCasinoPoints = addCasinoPoints;
         window.openCasinoGame = openCasinoGame;
         window.backToLobby = backToLobby;
@@ -1808,6 +1882,14 @@
         window.bookVipWithTokens = bookVipWithTokens;
         window.bookVipOnSite = bookVipOnSite;
         window.toggleAddressField = toggleAddressField;
+        window.addToCart = addToCart;
+        window.updateCartQty = updateCartQty;
+        window.removeFromCart = removeFromCart;
+        window.clearCart = clearCart;
+        window.saveDish = saveDish;
+        window.startEditDish = startEditDish;
+        window.cancelEditDish = cancelEditDish;
+        window.deleteDish = deleteDish;
 
         document.addEventListener('DOMContentLoaded', initApp);
     </script>
