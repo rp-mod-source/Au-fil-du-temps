@@ -201,7 +201,7 @@
             border: 1px solid var(--glass-border); border-radius: 6px;
             color: #fff; font-family: var(--font-body), sans-serif; font-size: 0.95rem;
         }
-        .form-group input:focus, .form-group select:focus { border-color: var(--gold-primary); outline: none; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--gold-primary); outline: none; }
 
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -316,6 +316,21 @@
                             <div class="form-group">
                                 <label for="order-plat">Choix du plat</label>
                                 <select id="order-plat" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-quantite">Quantité</label>
+                                <input type="number" id="order-quantite" value="1" min="1" max="20" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-type">Lieu de consommation</label>
+                                <select id="order-type" onchange="toggleAddressField()" required>
+                                    <option value="Sur place">Sur place</option>
+                                    <option value="À domicile">À domicile (+1000 €)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="address-group" style="display: none;">
+                                <label for="order-adresse">Adresse de livraison</label>
+                                <input type="text" id="order-adresse" placeholder="Indiquez votre adresse complète">
                             </div>
                             <button type="submit" class="btn" style="width: 100%;">Transmettre au Chef</button>
                         </form>
@@ -707,11 +722,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import {
             getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc,
-            onSnapshot, addDoc, query, orderBy, limit, increment, runTransaction,
-            enableNetwork, disableNetwork
+            onSnapshot, addDoc, query, orderBy, limit, increment, runTransaction
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Configuration Firebase pour "Au Fil du Temps"
         const firebaseConfig = {
             apiKey: "AIzaSyARUHn9BHDH9JfwVnn5oQIoUakjNC777qw",
             authDomain: "aufildutemps-dec09.firebaseapp.com",
@@ -743,6 +756,10 @@
         };
         const POKER_TABLE_PATH = ['pokerTables', 'table1'];
 
+        // Webhooks Discord
+        const DISCORD_WEBHOOK_CUISINE = "https://discord.com/api/webhooks/1546913548305965067/HdMZrSK0fYElQ8vRldcxkSkuh2qhoRG0W1jeIdnaK8qXqaRj3VAWfMwDjgGxL2ivxBfx";
+        const DISCORD_WEBHOOK_BIGWIN = "https://discord.com/api/webhooks/1546904716850626683/yb1upTPhJ8LPUF3U2_dgRxXMkb5WVJUkC11PtwSzyk-Kd11bdLBEyszXOW0AC4ufBB2D";
+
         const GAME_RULES = {
             minBetDefault: 100,
             minBetDice: 150,
@@ -762,10 +779,26 @@
             historyCap: 30
         };
 
-        const SESSION_KEY = 'aft_current_user_id'; // pointeur local : qui est connecté sur CET appareil
+        let currentUserId = null; // Stocke l'ID unique de l'utilisateur connecté sur CET appareil
 
         /* ============================================================
-           UTILITAIRES
+           UTILITAIRES DISCORD & WEBHOOKS
+           ============================================================ */
+        async function sendDiscordWebhook(webhookUrl, content) {
+            if (!webhookUrl) return;
+            try {
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+            } catch (e) {
+                console.warn("Erreur lors de l'envoi du webhook Discord :", e);
+            }
+        }
+
+        /* ============================================================
+           UTILITAIRES GÉNÉRAUX
            ============================================================ */
         function escapeHtml(value) {
             const str = (value === null || value === undefined) ? '' : String(value);
@@ -788,8 +821,8 @@
                     const digest = await window.crypto.subtle.digest('SHA-256', enc);
                     return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
                 }
-            } catch (e) { console.warn('Hachage indisponible, repli sur texte brut (contexte non sécurisé ?)', e); }
-            return 'plain:' + text; // repli si crypto.subtle indisponible (contexte non-HTTPS)
+            } catch (e) {}
+            return 'plain:' + text;
         }
 
         function showToast(message, type) {
@@ -812,7 +845,7 @@
         }
 
         /* ============================================================
-           ÉTAT LOCAL (miroir des données Firestore, tenu à jour par onSnapshot)
+           ÉTAT LOCAL
            ============================================================ */
         let users = [];
         let menuItems = [];
@@ -824,32 +857,23 @@
         let pokerTable = { players: [], pot: 0, status: 'attente' };
         let currentUser = null;
 
-        // État spécifique du jeu Blackjack en cours
-        let bjGameState = {
-            playerCards: [],
-            dealerCards: [],
-            bet: 0,
-            inGame: false
-        };
+        let bjGameState = { playerCards: [], dealerCards: [], bet: 0, inGame: false };
 
         function findUserById(id) { return users.find(u => u && u.id === id); }
-        function findUserByNomPrenom(nom, prenom) {
-            const slug = userSlug(prenom, nom);
-            return users.find(u => u && u.id === slug);
-        }
+        function findUserByNomPrenom(nom, prenom) { return users.find(u => u && u.id === userSlug(prenom, nom)); }
         function findDishById(id) { return menuItems.find(item => item && item.id === id); }
 
-        function refreshCurrentUserFromUsers() {
-            if (!currentUser) return;
-            const fresh = findUserById(currentUser.id);
-            if (fresh) { currentUser = fresh; checkAuthUI(); }
+        function refreshCurrentUser() {
+            if (!currentUserId) { currentUser = null; }
+            else { currentUser = findUserById(currentUserId) || null; }
+            checkAuthUI();
         }
 
         /* ============================================================
            COUCHE FIRESTORE
            ============================================================ */
         function requireDb() {
-            if (!db) { showToast("Firebase n'est pas configuré : impossible de contacter le serveur.", 'error'); return false; }
+            if (!db) { showToast("Firebase n'est pas configuré.", 'error'); return false; }
             return true;
         }
 
@@ -857,16 +881,12 @@
             const snap = await getDoc(doc(db, COLLECTIONS.users, slug));
             return snap.exists() ? { id: snap.id, ...snap.data() } : null;
         }
-
         async function fbCreateUser(slug, data) { await setDoc(doc(db, COLLECTIONS.users, slug), data); }
         async function fbUpdateUser(slug, fields) { await updateDoc(doc(db, COLLECTIONS.users, slug), fields); }
-
         async function fbAddOrder(data) { await addDoc(collection(db, COLLECTIONS.orders), data); }
         async function fbDeleteOrder(id) { await deleteDoc(doc(db, COLLECTIONS.orders, id)); }
-
         async function fbAddVipRequest(data) { await addDoc(collection(db, COLLECTIONS.vipRequests), data); }
         async function fbDeleteVipRequest(id) { await deleteDoc(doc(db, COLLECTIONS.vipRequests, id)); }
-
         async function fbAddMenuItem(data) { await addDoc(collection(db, COLLECTIONS.menu), data); }
 
         async function fbAddHistoryAndTrim(entry) {
@@ -883,12 +903,10 @@
                 const snap = await new Promise((resolve, reject) => {
                     const unsub = onSnapshot(q, s => { unsub(); resolve(s); }, reject);
                 });
-                const docs = snap.docs;
-                if (docs.length > cap) {
-                    const toDelete = docs.slice(cap);
-                    await Promise.all(toDelete.map(d => deleteDoc(d.ref).catch(() => {})));
+                if (snap.docs.length > cap) {
+                    await Promise.all(snap.docs.slice(cap).map(d => deleteDoc(d.ref).catch(() => {})));
                 }
-            } catch (e) { /* nettoyage best-effort, non bloquant */ }
+            } catch (e) {}
         }
 
         /* ============================================================
@@ -898,7 +916,7 @@
             onSnapshot(collection(db, COLLECTIONS.users), snap => {
                 users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderAdminUsers();
-                refreshCurrentUserFromUsers();
+                refreshCurrentUser();
             }, err => console.error('Écoute users:', err));
 
             onSnapshot(query(collection(db, COLLECTIONS.users), orderBy('jetons', 'desc'), limit(10)), snap => {
@@ -929,7 +947,7 @@
             onSnapshot(query(collection(db, COLLECTIONS.liveBets), orderBy('timestamp', 'desc'), limit(GAME_RULES.liveBetsCap)), snap => {
                 liveBets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderLiveBets();
-            }, err => console.error('Écoute mises en direct:', err));
+            }, err => console.error('Écoute mises:', err));
 
             onSnapshot(doc(db, ...POKER_TABLE_PATH), snap => {
                 pokerTable = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
@@ -938,7 +956,7 @@
         }
 
         /* ============================================================
-           INITIALISATION / NAVIGATION
+           INITIALISATION & NAVIGATION
            ============================================================ */
         async function initApp() {
             if (!isFirebaseConfigured) {
@@ -950,21 +968,10 @@
                     attachListeners();
                     setFirebaseStatus('online', 'En ligne');
                 } catch (e) {
-                    console.error(e);
                     setFirebaseStatus('offline', 'Hors ligne');
-                    showToast("Connexion à Firebase impossible. Vérifie ta configuration et ta connexion.", 'error');
+                    showToast("Connexion à Firebase impossible.", 'error');
                 }
             }
-
-            const savedId = localStorage.getItem(SESSION_KEY);
-            if (savedId && db) {
-                try {
-                    const snap = await getDoc(doc(db, COLLECTIONS.users, savedId));
-                    if (snap.exists()) { currentUser = { id: snap.id, ...snap.data() }; }
-                    else { localStorage.removeItem(SESSION_KEY); }
-                } catch (e) { console.warn('Session non restaurée :', e); }
-            }
-            checkAuthUI();
 
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
@@ -984,7 +991,7 @@
         }
 
         function enterClubDancefloor() {
-            if (!currentUser) { showToast("Veuillez vous identifier pour entrer dans le club."); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Veuillez vous identifier."); openModal('loginModal'); return; }
             showToast(`Bienvenue sur la piste de danse, ${currentUser.prenom} !`, 'success');
         }
 
@@ -999,10 +1006,27 @@
         function handleOverlayClick(event, id) { if (event.target && event.target.id === id) closeModal(id); }
 
         /* ============================================================
-           RESERVATION ET ACCES VIP
+           GESTION ADRESSE COMMANDE RESTAURANT
+           ============================================================ */
+        function toggleAddressField() {
+            const type = document.getElementById('order-type').value;
+            const addressGroup = document.getElementById('address-group');
+            const addressInput = document.getElementById('order-adresse');
+            if (type === 'À domicile') {
+                addressGroup.style.display = 'block';
+                addressInput.required = true;
+            } else {
+                addressGroup.style.display = 'none';
+                addressInput.required = false;
+                addressInput.value = '';
+            }
+        }
+
+        /* ============================================================
+           VIP
            ============================================================ */
         function openVipModal() {
-            if (!currentUser) { showToast("Veuillez vous identifier pour réserver un accès VIP.", 'error'); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Veuillez vous identifier.", 'error'); openModal('loginModal'); return; }
             openModal('vipModal');
         }
 
@@ -1014,19 +1038,12 @@
                 return;
             }
             try {
-                await fbUpdateUser(currentUser.id, {
-                    jetons: increment(-cost),
-                    isVip: true
-                });
-                currentUser.jetons -= cost;
-                currentUser.isVip = true;
-                checkAuthUI();
+                await fbUpdateUser(currentUser.id, { jetons: increment(-cost), isVip: true });
                 closeModal('vipModal');
                 playSfx('win');
                 showToast("Félicitations ! Vous êtes désormais Membre VIP.", 'success');
             } catch (e) {
-                console.error(e);
-                showToast("Erreur lors du traitement du statut VIP.", 'error');
+                showToast("Erreur lors du traitement VIP.", 'error');
             }
         }
 
@@ -1041,15 +1058,14 @@
                     timestamp: new Date().toISOString()
                 });
                 closeModal('vipModal');
-                showToast("Demande VIP transmise ! Un membre du staff validera votre règlement sur place.", 'success');
+                showToast("Demande VIP transmise au staff !", 'success');
             } catch (e) {
-                console.error(e);
                 showToast("Erreur lors de la réservation VIP.", 'error');
             }
         }
 
         /* ============================================================
-           AUTHENTIFICATION (RP simplifiée : nom+prénom+mot de passe)
+           AUTHENTIFICATION
            ============================================================ */
         async function handleRegister(e) {
             e.preventDefault();
@@ -1079,16 +1095,13 @@
                 };
                 await fbCreateUser(slug, newUser);
 
-                currentUser = { id: slug, ...newUser };
-                localStorage.setItem(SESSION_KEY, slug);
-
+                currentUserId = slug;
                 e.target.reset();
                 closeModal('registerModal');
-                checkAuthUI();
-                showToast(isEmploye ? "Compte Staff créé ! 2000 jetons offerts." : "Bienvenue ! 2000 jetons offerts.", 'success');
+                refreshCurrentUser();
+                showToast("Compte créé avec succès ! 2000 jetons offerts.", 'success');
             } catch (err) {
-                console.error(err);
-                showToast("Erreur lors de l'inscription. Vérifie ta connexion.", 'error');
+                showToast("Erreur lors de l'inscription.", 'error');
             } finally {
                 submitBtn.disabled = false;
             }
@@ -1113,20 +1126,25 @@
                     document.getElementById('login-error').style.display = 'block';
                     return;
                 }
-                currentUser = user;
-                localStorage.setItem(SESSION_KEY, slug);
+                currentUserId = slug;
                 e.target.reset();
                 closeModal('loginModal');
-                checkAuthUI();
+                refreshCurrentUser();
+                showToast(`Bon retour, ${prenom} !`, 'success');
             } catch (err) {
-                console.error(err);
-                showToast("Erreur de connexion. Vérifie ta connexion réseau.", 'error');
+                showToast("Erreur de connexion.", 'error');
             } finally {
                 submitBtn.disabled = false;
             }
         }
 
-        function logout() { currentUser = null; localStorage.removeItem(SESSION_KEY); checkAuthUI(); switchTab('restaurant'); }
+        function logout() {
+            currentUserId = null;
+            currentUser = null;
+            checkAuthUI();
+            switchTab('restaurant');
+            showToast("Vous avez été déconnecté.");
+        }
 
         function checkAuthUI() {
             const authPanel = document.getElementById('user-panel-auth');
@@ -1149,11 +1167,12 @@
         }
 
         /* ============================================================
-           MENU RESTAURANT
+           MENU & COMMANDES RESTAURANT (AVEC DISCORD)
            ============================================================ */
         function renderMenu() {
             const grid = document.getElementById('menu-grid');
             const select = document.getElementById('order-plat');
+            if(!grid || !select) return;
             grid.innerHTML = '';
             select.innerHTML = '';
             menuItems.forEach(item => {
@@ -1171,25 +1190,46 @@
             const nom = document.getElementById('order-nom').value.trim();
             const prenom = document.getElementById('order-prenom').value.trim();
             const dishId = document.getElementById('order-plat').value;
+            const quantite = parseInt(document.getElementById('order-quantite').value, 10) || 1;
+            const typeLieu = document.getElementById('order-type').value;
+            const adresse = document.getElementById('order-adresse').value.trim();
             const dish = findDishById(dishId);
-            if (!nom || !prenom || !dish) { showToast("Merci de renseigner votre identité et un plat valide.", 'error'); return; }
+
+            if (!nom || !prenom || !dish) { showToast("Informations incomplètes.", 'error'); return; }
+
+            let supplement = 0;
+            if (typeLieu === 'À domicile') {
+                supplement = 1000;
+            }
 
             try {
-                await fbAddOrder({
+                const orderData = {
                     userId: currentUser ? currentUser.id : null,
-                    nom, prenom, plat: dish.name,
+                    nom, prenom,
+                    plat: dish.name,
+                    quantite,
+                    typeLieu,
+                    adresse: typeLieu === 'À domicile' ? adresse : 'Sur place',
+                    supplement,
                     statut: 'En attente',
                     timestamp: new Date().toISOString()
-                });
-                showToast("Votre commande a été transmise au chef.", 'success');
+                };
+
+                await fbAddOrder(orderData);
+
+                // Envoi vers le Webhook Discord Cuisine
+                const discordMsg = `🍽️ **Nouvelle Commande Restaurant** !\n- **Client** : ${prenom} ${nom}\n- **Plat** : ${dish.name} (x${quantite})\n- **Type** : ${typeLieu}${typeLieu === 'À domicile' ? `\n- **Adresse** : ${adresse}\n- **Supplément** : 1000 €` : ''}`;
+                await sendDiscordWebhook(DISCORD_WEBHOOK_CUISINE, discordMsg);
+
+                showToast("Votre commande a été transmise au chef et envoyée sur Discord !", 'success');
                 e.target.reset();
+                toggleAddressField();
                 if (currentUser) {
                     document.getElementById('order-nom').value = currentUser.nom;
                     document.getElementById('order-prenom').value = currentUser.prenom;
                 }
             } catch (err) {
-                console.error(err);
-                showToast("Impossible d'envoyer la commande. Réessaie.", 'error');
+                showToast("Impossible d'envoyer la commande.", 'error');
             }
         }
 
@@ -1202,12 +1242,16 @@
             if (orders.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucune commande en cours.</p>`; return; }
             container.innerHTML = orders.map(ord => `
                 <div class="admin-row">
-                    <div><strong style="color:var(--gold-light);">${escapeHtml(ord.prenom)} ${escapeHtml(ord.nom)}</strong><br><span style="font-size:0.85rem;">Plat: ${escapeHtml(ord.plat)}</span></div>
+                    <div>
+                        <strong style="color:var(--gold-light);">${escapeHtml(ord.prenom)} ${escapeHtml(ord.nom)}</strong><br>
+                        <span style="font-size:0.85rem;">Plat: ${escapeHtml(ord.plat)} (x${ord.quantite || 1})</span><br>
+                        <span style="font-size:0.75rem; color:var(--gold-primary);">Lieu: ${escapeHtml(ord.typeLieu)} ${ord.typeLieu === 'À domicile' ? `(${escapeHtml(ord.adresse)})` : ''}</span>
+                    </div>
                     <button type="button" class="btn" style="padding:4px 10px; font-size:0.7rem;" onclick="completeOrder('${ord.id}')">Servir</button>
                 </div>`).join('');
         }
         async function completeOrder(id) {
-            try { await fbDeleteOrder(id); } catch (e) { console.error(e); showToast("Erreur lors de la mise à jour.", 'error'); }
+            try { await fbDeleteOrder(id); } catch (e) { showToast("Erreur.", 'error'); }
         }
 
         function renderAdminVipRequests() {
@@ -1217,7 +1261,7 @@
             container.innerHTML = vipRequests.map(req => `
                 <div class="admin-row">
                     <div><strong style="color:var(--gold-light);">${escapeHtml(req.prenom)} ${escapeHtml(req.nom)}</strong><br><span style="font-size:0.8rem; color:var(--text-muted);">A payer: ${escapeHtml(req.montant)}</span></div>
-                    <button type="button" class="btn" style="padding:4px 10px; font-size:0.7rem;" onclick="validateVipPayment('${req.id}')">Valider ${escapeHtml(req.montant)}</button>
+                    <button type="button" class="btn" style="padding:4px 10px; font-size:0.7rem;" onclick="validateVipPayment('${req.id}')">Valider</button>
                 </div>`).join('');
         }
         async function validateVipPayment(id) {
@@ -1226,18 +1270,15 @@
             try {
                 await fbDeleteVipRequest(id);
                 const target = findUserByNomPrenom(req.nom, req.prenom);
-                if (target) {
-                    await fbUpdateUser(target.id, { isVip: true });
-                    if (currentUser && currentUser.id === target.id) { currentUser.isVip = true; checkAuthUI(); }
-                }
+                if (target) { await fbUpdateUser(target.id, { isVip: true }); }
                 showToast("Paiement validé. Statut VIP accordé.", 'success');
-            } catch (e) { console.error(e); showToast("Erreur lors de la validation.", 'error'); }
+            } catch (e) { showToast("Erreur.", 'error'); }
         }
 
         function renderAdminUsers() {
             const container = document.getElementById('admin-users-list');
             if (!container) return;
-            if (users.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun utilisateur enregistré.</p>`; return; }
+            if (users.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun utilisateur.</p>`; return; }
             container.innerHTML = users.filter(u => u && u.nom).map(u => `
                 <div class="admin-row" style="border-left-color: ${u.employe ? 'var(--success)' : 'var(--text-muted)'}">
                     <div>
@@ -1259,8 +1300,7 @@
             if (!target) return;
             try {
                 await fbUpdateUser(id, { [roleProp]: !target[roleProp] });
-                if (currentUser && currentUser.id === id) { currentUser[roleProp] = !target[roleProp]; checkAuthUI(); }
-            } catch (e) { console.error(e); showToast("Erreur lors de la mise à jour du rôle.", 'error'); }
+            } catch (e) { showToast("Erreur.", 'error'); }
         }
 
         async function addNewDish(e) {
@@ -1269,12 +1309,12 @@
             const name = document.getElementById('new-dish-name').value.trim();
             const desc = document.getElementById('new-dish-desc').value.trim();
             const price = document.getElementById('new-dish-price').value.trim();
-            if (!name || !desc || !price) { showToast("Merci de remplir tous les champs du plat.", 'error'); return; }
+            if (!name || !desc || !price) return;
             try {
                 await fbAddMenuItem({ name, desc, price });
                 e.target.reset();
                 showToast("Menu mis à jour !", 'success');
-            } catch (err) { console.error(err); showToast("Erreur lors de l'ajout du plat.", 'error'); }
+            } catch (err) { showToast("Erreur.", 'error'); }
         }
 
         async function addCasinoPoints(e) {
@@ -1283,24 +1323,23 @@
             const n = document.getElementById('target-nom').value.trim();
             const p = document.getElementById('target-prenom').value.trim();
             const pts = parseInt(document.getElementById('target-points').value, 10);
-            if (!Number.isFinite(pts)) { showToast("Montant invalide.", 'error'); return; }
+            if (!Number.isFinite(pts)) return;
             const target = findUserByNomPrenom(n, p);
             if (!target) { showToast("Client introuvable.", 'error'); return; }
             try {
                 await fbUpdateUser(target.id, { jetons: increment(pts) });
-                if (currentUser && currentUser.id === target.id) { currentUser.jetons = (currentUser.jetons || 0) + pts; checkAuthUI(); }
-                showToast(`${pts >= 0 ? '+' : ''}${pts} jetons crédités.`, 'success');
+                showToast("Crédit effectué.", 'success');
                 e.target.reset();
-            } catch (err) { console.error(err); showToast("Erreur lors du crédit.", 'error'); }
+            } catch (err) { showToast("Erreur.", 'error'); }
         }
 
         /* ============================================================
-           CLASSEMENT
+           CLASSEMENT & HISTORIQUE CASINO
            ============================================================ */
         function renderLeaderboard() {
             const container = document.getElementById('leaderboard-list');
             if (!container) return;
-            if (leaderboard.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun joueur classé pour le moment.</p>`; return; }
+            if (leaderboard.length === 0) { container.innerHTML = `<p style="color:var(--text-muted);">Aucun joueur classé.</p>`; return; }
             container.innerHTML = leaderboard.map((u, i) => `
                 <div class="rank-row">
                     <span class="rank-num">${i + 1}</span>
@@ -1309,9 +1348,6 @@
                 </div>`).join('');
         }
 
-        /* ============================================================
-           MISES EN DIRECT & HISTORIQUE
-           ============================================================ */
         async function recordLiveBet(game, amount, details = '') {
             if (!currentUser || !db) return;
             try {
@@ -1320,13 +1356,13 @@
                     game, amount, details,
                     timestamp: new Date().toISOString()
                 });
-            } catch (e) { console.error('Erreur mise en direct:', e); }
+            } catch (e) {}
         }
 
         function renderLiveBets() {
             const container = document.getElementById('live-bets-list');
             if (!container) return;
-            if (liveBets.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">Aucune mise en direct pour le moment.</p>'; return; }
+            if (liveBets.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">Aucune mise en direct.</p>'; return; }
             container.innerHTML = liveBets.map(b => `
                 <div class="admin-row" style="border-left-color: var(--gold-primary);">
                     <div>
@@ -1336,7 +1372,6 @@
                     </div>
                     <div style="text-align:right;">
                         <span style="font-family: var(--font-heading), serif; color: var(--gold-primary); font-weight: bold;">${b.amount} jetons</span>
-                        <br><span style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(new Date(b.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</span>
                     </div>
                 </div>`).join('');
         }
@@ -1349,8 +1384,15 @@
                     game, bet, win, diff,
                     timestamp: new Date().toISOString()
                 });
-            } catch (e) { console.error('Erreur historique casino:', e); }
+
+                // Si le gain net est supérieur à 1000 jetons, envoi sur le second webhook Discord
+                if (win && diff > 1000) {
+                    const bigWinMsg = `🎰 **GROS GAIN AU CASINO !** 🎰\n- **Joueur** : ${currentUser.prenom} ${currentUser.nom}\n- **Jeu** : ${game}\n- **Gain net** : +${diff} jetons (Mise : ${bet})`;
+                    await sendDiscordWebhook(DISCORD_WEBHOOK_BIGWIN, bigWinMsg);
+                }
+            } catch (e) {}
         }
+
         function renderCasinoHistory() {
             const c = document.getElementById('casino-history-list');
             if (!c) return;
@@ -1358,12 +1400,12 @@
             c.innerHTML = casinoHistory.map(h => `
                 <div class="admin-row" style="border-left-color: ${h.win ? 'var(--success)' : 'var(--danger)'}">
                     <div><strong>${escapeHtml(h.prenom)} ${escapeHtml(h.nom)}</strong> <span style="color:var(--text-muted); font-size:0.75rem;">(${escapeHtml(h.game)})</span><br><span style="font-size:0.8rem;">Mise : ${h.bet}</span></div>
-                    <div style="text-align:right;"><span style="color:${h.win ? 'var(--success)' : 'var(--danger)'}; font-weight:bold;">${h.win ? '+' + h.diff : '-' + h.bet}</span><br><span style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</span></div>
+                    <div style="text-align:right;"><span style="color:${h.win ? 'var(--success)' : 'var(--danger)'}; font-weight:bold;">${h.win ? '+' + h.diff : '-' + h.bet}</span></div>
                 </div>`).join('');
         }
 
         /* ============================================================
-           JEUX DE CASINO SOLO (Blackjack, Slots, Roulette, Dé)
+           JEUX DE CASINO SOLO
            ============================================================ */
         function generateCard() {
             const suits = ['♠', '♥', '♦', '♣'];
@@ -1382,10 +1424,7 @@
         function calculateHandValue(cards) {
             let total = cards.reduce((acc, c) => acc + getCardScore(c), 0);
             let aces = cards.filter(c => c.val === 'A').length;
-            while (total > 21 && aces > 0) {
-                total -= 10;
-                aces--;
-            }
+            while (total > 21 && aces > 0) { total -= 10; aces--; }
             return total;
         }
 
@@ -1394,7 +1433,7 @@
         }
 
         async function startBlackjack() {
-            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
 
             const bet = parseInt(document.getElementById('bj-bet').value, 10);
@@ -1407,29 +1446,21 @@
             bjGameState.dealerCards = [generateCard()];
 
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
-            currentUser.jetons -= bet;
-            checkAuthUI();
             recordLiveBet('Blackjack', bet);
 
             document.getElementById('bj-start-btn').style.display = 'none';
             document.getElementById('bj-actions').style.display = 'flex';
-            document.getElementById('bj-status').innerText = 'En cours... Que faites-vous ?';
+            document.getElementById('bj-status').innerText = 'En cours...';
 
             updateBlackjackUI();
             playSfx('card');
 
-            if (calculateHandValue(bjGameState.playerCards) === 21) {
-                endBlackjack(true, true);
-            }
+            if (calculateHandValue(bjGameState.playerCards) === 21) { endBlackjack(true, true); }
         }
 
         function updateBlackjackUI() {
-            const playerContainer = document.getElementById('bj-player-cards');
-            playerContainer.innerHTML = bjGameState.playerCards.map(c => renderCardHTML(c)).join('');
-            const pScore = calculateHandValue(bjGameState.playerCards);
-
-            const dScore = calculateHandValue(bjGameState.dealerCards);
-            document.getElementById('bj-dealer-info').innerText = `Banque : ${dScore} pts (${bjGameState.dealerCards.map(c => c.val + c.suit).join(', ')})`;
+            document.getElementById('bj-player-cards').innerHTML = bjGameState.playerCards.map(c => renderCardHTML(c)).join('');
+            document.getElementById('bj-dealer-info').innerText = `Banque : ${calculateHandValue(bjGameState.dealerCards)} pts`;
         }
 
         async function hitBlackjack() {
@@ -1437,188 +1468,143 @@
             playSfx('card');
             bjGameState.playerCards.push(generateCard());
             updateBlackjackUI();
-
-            const pScore = calculateHandValue(bjGameState.playerCards);
-            if (pScore > 21) {
-                endBlackjack(false);
-            } else if (pScore === 21) {
-                standBlackjack();
-            }
+            if (calculateHandValue(bjGameState.playerCards) > 21) { endBlackjack(false); }
+            else if (calculateHandValue(bjGameState.playerCards) === 21) { standBlackjack(); }
         }
 
         async function standBlackjack() {
             if (!bjGameState.inGame) return;
-
-            while (calculateHandValue(bjGameState.dealerCards) < 17) {
-                bjGameState.dealerCards.push(generateCard());
-            }
+            while (calculateHandValue(bjGameState.dealerCards) < 17) { bjGameState.dealerCards.push(generateCard()); }
             updateBlackjackUI();
 
             const pScore = calculateHandValue(bjGameState.playerCards);
             const dScore = calculateHandValue(bjGameState.dealerCards);
 
-            if (dScore > 21 || pScore > dScore) {
-                endBlackjack(true);
-            } else if (pScore === dScore) {
-                endBlackjack('push');
-            } else {
-                endBlackjack(false);
-            }
+            if (dScore > 21 || pScore > dScore) { endBlackjack(true); }
+            else if (pScore === dScore) { endBlackjack('push'); }
+            else { endBlackjack(false); }
         }
 
-        async function endBlackjack(isWin, isNaturalBlackjack = false) {
+        async function endBlackjack(isWin, isNatural = false) {
             bjGameState.inGame = false;
             document.getElementById('bj-start-btn').style.display = 'block';
             document.getElementById('bj-actions').style.display = 'none';
 
             let gain = 0;
-            let statusText = '';
-
-            if (isWin === 'push') {
-                gain = bjGameState.bet;
-                statusText = 'Égalité ! Vous récupérez votre mise.';
-            } else if (isWin) {
-                gain = isNaturalBlackjack ? Math.floor(bjGameState.bet * GAME_RULES.blackjackPayout) : bjGameState.bet * 2;
-                statusText = isNaturalBlackjack ? `BLACKJACK ! Vous gagnez ${gain} jetons !` : `Victoire ! Vous gagnez ${gain} jetons !`;
+            if (isWin === 'push') { gain = bjGameState.bet; }
+            else if (isWin) {
+                gain = isNatural ? Math.floor(bjGameState.bet * GAME_RULES.blackjackPayout) : bjGameState.bet * 2;
                 playSfx('win');
-            } else {
-                statusText = 'La banque gagne. Dommage !';
-                playSfx('lose');
-            }
+            } else { playSfx('lose'); }
 
-            document.getElementById('bj-status').innerText = statusText;
+            document.getElementById('bj-status').innerText = isWin ? `Victoire ! +${gain} jetons` : 'Perdu.';
 
             if (gain > 0) {
                 await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-                currentUser.jetons += gain;
-                checkAuthUI();
             }
-
-            recordCasinoGame('Blackjack', bjGameState.bet, isWin === true || isNaturalBlackjack, isWin === 'push' ? 0 : (isWin ? gain - bjGameState.bet : bjGameState.bet));
+            recordCasinoGame('Blackjack', bjGameState.bet, isWin === true || isNatural, isWin === 'push' ? 0 : (isWin ? gain - bjGameState.bet : bjGameState.bet));
         }
 
         async function playSlots() {
-            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
 
             const bet = parseInt(document.getElementById('slot-bet').value, 10);
-            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast(`Mise minimum : ${GAME_RULES.minBetDefault} jetons.`, 'error'); return; }
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast("Mise invalide.", 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
 
             const btn = document.getElementById('slot-play-btn');
             btn.disabled = true;
 
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
-            currentUser.jetons -= bet;
-            checkAuthUI();
             recordLiveBet('Machine à Sous', bet);
 
-            const symbols = ['🍒', '🍋', '🔔', '💎', '7️⃣'];
-            const s1 = symbols[Math.floor(Math.random() * symbols.length)];
-            const s2 = symbols[Math.floor(Math.random() * symbols.length)];
-            const s3 = symbols[Math.floor(Math.random() * symbols.length)];
+            const syms = ['🍒', '🍋', '🔔', '💎', '7️⃣'];
+            const s1 = syms[Math.floor(Math.random() * syms.length)];
+            const s2 = syms[Math.floor(Math.random() * syms.length)];
+            const s3 = syms[Math.floor(Math.random() * syms.length)];
 
             document.getElementById('slot-1').innerText = s1;
             document.getElementById('slot-2').innerText = s2;
             document.getElementById('slot-3').innerText = s3;
 
             let gain = 0;
-            let status = '';
-
             if (s1 === s2 && s2 === s3) {
                 gain = Math.floor(bet * GAME_RULES.slotJackpotMultiplier);
-                status = `JACKPOT ! 3 symboles identiques ! (+${gain} jetons)`;
                 playSfx('win');
             } else if (s1 === s2 || s2 === s3 || s1 === s3) {
                 gain = Math.floor(bet * GAME_RULES.slotMinorMultiplier);
-                status = `Bien joué ! 2 symboles identiques (+${gain} jetons)`;
                 playSfx('win');
-            } else {
-                status = "Pas de chance cette fois !";
-                playSfx('lose');
-            }
+            } else { playSfx('lose'); }
 
-            document.getElementById('slot-status').innerText = status;
+            document.getElementById('slot-status').innerText = gain > 0 ? `Gagné ! +${gain} jetons` : "Perdu.";
 
             if (gain > 0) {
                 await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-                currentUser.jetons += gain;
-                checkAuthUI();
             }
-
             recordCasinoGame('Machine à sous', bet, gain > 0, gain > 0 ? gain - bet : bet);
             btn.disabled = false;
         }
 
         async function playRoulette(choice) {
-            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
 
             const bet = parseInt(document.getElementById('roulette-bet').value, 10);
-            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast(`Mise minimum : ${GAME_RULES.minBetDefault} jetons.`, 'error'); return; }
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDefault) { showToast("Mise invalide.", 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
 
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
-            currentUser.jetons -= bet;
-            checkAuthUI();
-            recordLiveBet('Roulette', bet, `Pari sur ${choice}`);
+            recordLiveBet('Roulette', bet, `Pari: ${choice}`);
 
             const winningColor = Math.random() < 0.5 ? 'Rouge' : 'Noir';
             const isWin = choice === winningColor;
             const gain = isWin ? bet * GAME_RULES.rouletteMultiplier : 0;
 
-            document.getElementById('roulette-status').innerText = `Roue arrêtée sur : ${winningColor}. ${isWin ? `Gagné ! (+${gain} pts)` : 'Perdu !'}`;
+            document.getElementById('roulette-status').innerText = `Sortie : ${winningColor}. ${isWin ? `Gagné ! +${gain}` : 'Perdu.'}`;
 
             if (isWin) {
                 playSfx('win');
                 await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-                currentUser.jetons += gain;
-                checkAuthUI();
-            } else {
-                playSfx('lose');
-            }
+            } else { playSfx('lose'); }
 
             recordCasinoGame('Roulette', bet, isWin, isWin ? gain - bet : bet);
         }
 
         async function playDice() {
-            if (!currentUser) { showToast("Veuillez vous connecter pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Veuillez vous connecter.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
 
             const bet = parseInt(document.getElementById('dice-bet').value, 10);
             const choice = parseInt(document.getElementById('dice-choice').value, 10);
 
-            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDice) { showToast(`Mise minimum : ${GAME_RULES.minBetDice} jetons.`, 'error'); return; }
+            if (!Number.isFinite(bet) || bet < GAME_RULES.minBetDice) { showToast("Mise invalide.", 'error'); return; }
             if ((currentUser.jetons || 0) < bet) { showToast("Jetons insuffisants !", 'error'); return; }
 
             await fbUpdateUser(currentUser.id, { jetons: increment(-bet) });
-            currentUser.jetons -= bet;
-            checkAuthUI();
-            recordLiveBet('Jeu du Dé', bet, `Numéro choisi : ${choice}`);
+            recordLiveBet('Jeu du Dé', bet, `Dé: ${choice}`);
 
             const diceRoll = Math.floor(Math.random() * 6) + 1;
-            const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-            document.getElementById('dice-result').innerText = diceEmojis[diceRoll - 1];
+            const emojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            document.getElementById('dice-result').innerText = emojis[diceRoll - 1];
 
             const isWin = choice === diceRoll;
             const gain = isWin ? bet * GAME_RULES.diceMultiplier : 0;
 
             if (isWin) {
                 playSfx('win');
-                document.getElementById('dice-status').innerText = `EXCELLENT ! Le ${diceRoll} est tombé ! (+${gain} jetons)`;
+                document.getElementById('dice-status').innerText = `Gagné ! +${gain} jetons`;
                 await fbUpdateUser(currentUser.id, { jetons: increment(gain) });
-                currentUser.jetons += gain;
-                checkAuthUI();
             } else {
                 playSfx('lose');
-                document.getElementById('dice-status').innerText = `Résultat : ${diceRoll}. Perdu, tentez encore !`;
+                document.getElementById('dice-status').innerText = `Sortie : ${diceRoll}. Perdu.`;
             }
 
             recordCasinoGame('Jeu du Dé', bet, isWin, isWin ? gain - bet : bet);
         }
 
         /* ============================================================
-           POKER MULTIJOUEUR — table partagée via transaction Firestore
+           POKER MULTIJOUEUR
            ============================================================ */
         function openCasinoGame(gameName) {
             document.querySelectorAll('.casino-view').forEach(v => v.style.display = 'none');
@@ -1631,7 +1617,7 @@
         }
 
         async function createOrJoinPokerTable() {
-            if (!currentUser) { showToast("Connectez-vous pour jouer.", 'error'); openModal('loginModal'); return; }
+            if (!currentUser) { showToast("Connectez-vous.", 'error'); openModal('loginModal'); return; }
             if (!requireDb()) return;
 
             const buyin = parseInt(document.getElementById('poker-buyin').value, 10) || 200;
@@ -1642,32 +1628,22 @@
                     const snap = await tx.get(tableRef);
                     const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
 
-                    if (table.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom)) {
-                        return; // déjà assis
-                    }
-                    if (table.players.length >= GAME_RULES.pokerMaxPlayers) {
-                        throw new Error('TABLE_PLEINE');
-                    }
-                    if (!currentUser.jetons || currentUser.jetons < buyin) {
-                        throw new Error('SOLDE_INSUFFISANT');
-                    }
+                    if (table.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom)) return;
+                    if (table.players.length >= GAME_RULES.pokerMaxPlayers) throw new Error('TABLE_PLEINE');
+                    if (!currentUser.jetons || currentUser.jetons < buyin) throw new Error('SOLDE_INSUFFISANT');
 
-                    const userRef = doc(db, COLLECTIONS.users, currentUser.id);
-                    tx.update(userRef, { jetons: increment(-buyin) });
+                    tx.update(doc(db, COLLECTIONS.users, currentUser.id), { jetons: increment(-buyin) });
                     table.players.push({ nom: currentUser.nom, prenom: currentUser.prenom, stack: buyin, folded: false });
                     tx.set(tableRef, table);
                 });
 
-                currentUser.jetons -= buyin;
-                checkAuthUI();
                 document.getElementById('poker-setup').style.display = 'none';
                 document.getElementById('poker-board').style.display = 'block';
                 playSfx('card');
-                recordLiveBet('Poker Texas', buyin, "Achat de tapis (Buy-in)");
             } catch (err) {
-                if (err.message === 'TABLE_PLEINE') showToast(`La table est complète (maximum ${GAME_RULES.pokerMaxPlayers} joueurs).`, 'error');
-                else if (err.message === 'SOLDE_INSUFFISANT') showToast("Solde insuffisant pour payer la mise d'entrée !", 'error');
-                else { console.error(err); showToast("Erreur lors de la connexion à la table.", 'error'); }
+                if (err.message === 'TABLE_PLEINE') showToast("Table pleine.", 'error');
+                else if (err.message === 'SOLDE_INSUFFISANT') showToast("Jetons insuffisants.", 'error');
+                else showToast("Erreur de table.", 'error');
             }
         }
 
@@ -1679,16 +1655,14 @@
             countElem.innerText = pokerTable.players.length;
             potElem.innerText = pokerTable.pot + " Jetons";
 
-            const seatsContainer = document.getElementById('poker-seats-list');
-            seatsContainer.innerHTML = pokerTable.players.map(p => `
+            document.getElementById('poker-seats-list').innerHTML = pokerTable.players.map(p => `
                 <div style="background: rgba(255,255,255,0.05); border: 1px solid ${p.folded ? 'var(--danger)' : 'var(--glass-border)'}; padding: 8px 12px; border-radius: 6px; text-align:center; min-width: 100px;">
                     <div style="font-size:0.75rem; color:var(--gold-light);">${escapeHtml(p.prenom)} ${escapeHtml(p.nom)}</div>
                     <div style="font-size:0.9rem; font-weight:bold; color:#fff;">${p.stack} pts</div>
-                    ${p.folded ? '<span style="font-size:0.6rem; color:var(--danger);">Couché</span>' : ''}
                 </div>`).join('');
 
-            const isPlayerSeated = currentUser && pokerTable.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
-            if (isPlayerSeated) {
+            const isSeated = currentUser && pokerTable.players.some(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
+            if (isSeated) {
                 document.getElementById('poker-setup').style.display = 'none';
                 document.getElementById('poker-board').style.display = 'block';
             }
@@ -1696,15 +1670,9 @@
             if (pokerTable.players.length >= GAME_RULES.pokerMinPlayers && pokerTable.status === 'attente') {
                 document.getElementById('poker-start-btn').style.display = 'block';
                 document.getElementById('poker-actions').style.display = 'none';
-                document.getElementById('poker-room-status').innerText = "Prêt à démarrer ! En attente du lancement.";
-            } else if (pokerTable.players.length < GAME_RULES.pokerMinPlayers) {
-                document.getElementById('poker-start-btn').style.display = 'none';
-                document.getElementById('poker-actions').style.display = 'none';
-                document.getElementById('poker-room-status').innerText = `En attente d'autres joueurs (minimum ${GAME_RULES.pokerMinPlayers} requis)...`;
             } else if (pokerTable.status === 'en_cours') {
                 document.getElementById('poker-start-btn').style.display = 'none';
                 document.getElementById('poker-actions').style.display = 'flex';
-                document.getElementById('poker-room-status').innerText = "Manche de Poker en cours ! Faites vos choix.";
             }
         }
 
@@ -1713,147 +1681,103 @@
             const tableRef = doc(db, ...POKER_TABLE_PATH);
             try {
                 await runTransaction(db, async (tx) => {
-                    const snap = await tx.get(tableRef);
-                    const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
+                    const table = (await tx.get(tableRef)).data();
                     table.status = 'en_cours';
                     table.pot = table.players.length * GAME_RULES.pokerBlind;
                     table.players = table.players.map(p => ({ ...p, stack: p.stack - GAME_RULES.pokerBlind, folded: false }));
                     tx.set(tableRef, table);
                 });
                 playSfx('card');
-                recordLiveBet('Poker Texas', GAME_RULES.pokerBlind, 'Blinde initiale');
-            } catch (e) { console.error(e); showToast("Erreur lors du lancement de la manche.", 'error'); }
+            } catch (e) { showToast("Erreur.", 'error'); }
         }
 
         async function pokerAction(actionType) {
             if (!currentUser || !requireDb()) return;
             const tableRef = doc(db, ...POKER_TABLE_PATH);
-            let outcome = null;
-
             try {
                 await runTransaction(db, async (tx) => {
-                    const snap = await tx.get(tableRef);
-                    const table = snap.exists() ? snap.data() : { players: [], pot: 0, status: 'attente' };
-                    const players = table.players.map(p => ({ ...p }));
-                    const player = players.find(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
+                    const table = (await tx.get(tableRef)).data();
+                    const player = table.players.find(p => p.nom === currentUser.nom && p.prenom === currentUser.prenom);
                     if (!player) return;
 
                     if (actionType === 'relancer') {
-                        if (player.stack < GAME_RULES.pokerRaiseAmount) { outcome = 'INSUFFISANT'; return; }
                         player.stack -= GAME_RULES.pokerRaiseAmount;
                         table.pot += GAME_RULES.pokerRaiseAmount;
-                        outcome = 'relance';
                     } else if (actionType === 'passer') {
                         player.folded = true;
-                        outcome = 'couche';
-                    } else {
-                        outcome = 'suivre';
                     }
 
-                    const activePlayers = players.filter(p => !p.folded);
-                    if (activePlayers.length === 1) {
-                        const winner = activePlayers[0];
+                    const active = table.players.filter(p => !p.folded);
+                    if (active.length === 1) {
+                        const winner = active[0];
                         winner.stack += table.pot;
-                        const winnerUser = findUserByNomPrenom(winner.nom, winner.prenom);
-                        if (winnerUser) { tx.update(doc(db, COLLECTIONS.users, winnerUser.id), { jetons: increment(table.pot) }); }
-                        outcome = { type: 'victoire', winner: winner.prenom, pot: table.pot };
+                        const wUser = findUserByNomPrenom(winner.nom, winner.prenom);
+                        if (wUser) { tx.update(doc(db, COLLECTIONS.users, wUser.id), { jetons: increment(table.pot) }); }
                         table.pot = 0;
                         table.status = 'attente';
                     }
-
-                    table.players = players;
                     tx.set(tableRef, table);
                 });
-
                 playSfx('card');
-                if (outcome === 'INSUFFISANT') { showToast("Jetons insuffisants pour relancer.", 'error'); return; }
-                if (outcome === 'relance') { recordLiveBet('Poker Texas', GAME_RULES.pokerRaiseAmount, 'Relance'); showToast(`Vous avez relancé de ${GAME_RULES.pokerRaiseAmount} jetons !`, 'success'); }
-                else if (outcome === 'couche') { showToast("Vous vous êtes couché pour cette manche."); }
-                else if (outcome === 'suivre') { showToast("Vous avez suivi l'action."); }
-                else if (outcome && outcome.type === 'victoire') {
-                    playSfx('win');
-                    showToast(`🏆 ${outcome.winner} remporte la manche et gagne ${outcome.pot} jetons !`, 'success');
-                }
-            } catch (e) { console.error(e); showToast("Erreur lors de l'action.", 'error'); }
+            } catch (e) { showToast("Erreur.", 'error'); }
         }
 
         /* ============================================================
-           SYSTÈME AUDIO (Web Audio API — synthétiseur intégré)
+           AUDIO
            ============================================================ */
-        let audioCtx = null;
-        let isCasinoAudioPlaying = false;
-        let casinoAmbienceInterval = null;
-
+        let audioCtx = null, isCasinoAudioPlaying = false, casinoAmbienceInterval = null;
         function initAudioContext() {
             if (!audioCtx) {
-                const AudioCtor = window.AudioContext || window.webkitAudioContext;
-                if (!AudioCtor) return;
-                audioCtx = new AudioCtor();
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) audioCtx = new AC();
             }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
-
         function toggleCasinoAudio() {
             initAudioContext();
             isCasinoAudioPlaying = !isCasinoAudioPlaying;
-            const btn = document.getElementById('audio-toggle-btn');
-            const icon = document.getElementById('audio-icon');
             if (isCasinoAudioPlaying) {
-                btn.innerText = "Couper Musique"; btn.style.borderColor = "var(--success)"; btn.style.color = "var(--success)"; icon.innerText = "🔊";
                 startCasinoAmbience();
+                document.getElementById('audio-toggle-btn').innerText = "Couper Musique";
             } else {
-                btn.innerText = "Activer Musique"; btn.style.borderColor = "var(--gold-primary)"; btn.style.color = "var(--gold-primary)"; icon.innerText = "🎵";
                 stopCasinoAmbience();
+                document.getElementById('audio-toggle-btn').innerText = "Activer Musique";
             }
         }
-
         function startCasinoAmbience() {
             if (casinoAmbienceInterval) clearInterval(casinoAmbienceInterval);
-            const chords = [261.63, 329.63, 392.00, 523.25, 440.00, 349.23];
-            playAmbientChord();
-            casinoAmbienceInterval = setInterval(() => { if (isCasinoAudioPlaying) playAmbientChord(chords[Math.floor(Math.random() * chords.length)]); }, 4500);
+            casinoAmbienceInterval = setInterval(() => { if (isCasinoAudioPlaying) playAmbientChord(); }, 4500);
         }
-
         function stopCasinoAmbience() { if (casinoAmbienceInterval) { clearInterval(casinoAmbienceInterval); casinoAmbienceInterval = null; } }
-
         function playAmbientChord(freq = 261.63) {
             if (!audioCtx || !isCasinoAudioPlaying) return;
             try {
-                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-                osc.type = 'sine'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 1.5);
-                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 4);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 4.2);
+                const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3);
+                osc.connect(g); g.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 3.2);
             } catch (e) {}
         }
-
         function playSfx(type) {
             initAudioContext();
             if (!audioCtx) return;
             try {
-                const now = audioCtx.currentTime;
-                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-                osc.connect(gain); gain.connect(audioCtx.destination);
-
-                if (type === 'card') {
-                    osc.type = 'triangle'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
-                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-                    osc.start(now); osc.stop(now + 0.08);
-                } else if (type === 'win') {
-                    osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1); osc.frequency.setValueAtTime(783.99, now + 0.2);
-                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
-                    osc.start(now); osc.stop(now + 0.4);
-                } else if (type === 'lose') {
-                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(120, now + 0.25);
-                    gain.gain.setValueAtTime(0.15, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
-                    osc.start(now); osc.stop(now + 0.25);
+                const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+                osc.connect(g); g.connect(audioCtx.destination);
+                if (type === 'win') {
+                    osc.frequency.setValueAtTime(523, now); osc.frequency.setValueAtTime(659, now + 0.1);
+                    g.gain.setValueAtTime(0.15, now); g.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                } else {
+                    osc.frequency.setValueAtTime(200, now);
+                    g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0.01, now + 0.15);
                 }
+                osc.start(now); osc.stop(now + 0.3);
             } catch (e) {}
         }
 
-        /* Expositions globales nécessaires pour les gestionnaires d'évènements inline HTML (onclick, onsubmit) */
+        /* Expositions globales */
         window.switchTab = switchTab;
         window.enterClubDancefloor = enterClubDancefloor;
         window.openModal = openModal;
@@ -1883,8 +1807,8 @@
         window.openVipModal = openVipModal;
         window.bookVipWithTokens = bookVipWithTokens;
         window.bookVipOnSite = bookVipOnSite;
+        window.toggleAddressField = toggleAddressField;
 
-        // Démarrage
         document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
